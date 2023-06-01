@@ -1,0 +1,71 @@
+body
+{
+    background: linear-gradient(0deg, rgba(0,0,0,.45), rgba(0,0,0,.45)), url('./background.jpg') no-repeat fixed;
+    background-position: center;
+    background-size: cover;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.background
+{ 
+    display: flex;
+    width: 100%;
+    margin-top: 5rem;
+    margin-bottom: 5rem;
+}
+
+.form-container
+{
+    padding: 50px 60px;
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+    height: fit-content;
+    margin: auto auto;
+    -webkit-box-shadow: 0px 0px 56px 23px rgba(0,0,0,0.73);
+    -moz-box-shadow: 0px 0px 56px 23px rgba(0,0,0,0.73);
+    box-shadow: 0px 0px 56px 23px rgba(0,0,0,0.73);
+    background-color: rgba(0,0,0,0.80);
+}
+
+.btn-login
+{
+    width: fit-content; 
+    margin-top: 5%;
+    align-self: center;
+    padding: 5px 35px;
+    border-radius: 60px;
+    font-size: 30px;
+    font-weight: 500;
+    background-color: #164995;
+    outline: none;
+    border: none;
+    color: white;
+}
+
+.form-container button:hover, a:hover
+{ background-color: #008867; }
+
+.form-container input, .form-container textarea
+{
+    border: 3px solid;
+    border-color: transparent;
+    border-radius: 20px;
+    padding-left: 20px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.form-container input:focus, .form-container textarea:focus
+{ border-color: #008867; }
+
+.form-container label
+{
+    color: white;
+    font-size: 25px;
+    font-weight: 500;
+}
+
+a 
+{ text-decoration: none }

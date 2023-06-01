@@ -1,0 +1,8 @@
+sudo apt-get install npm
+nvm install --lts
+nvm use --lts
+node -v
+npm install ws
+npm install jquery
+npm install bootstrap
+npm install mysql2

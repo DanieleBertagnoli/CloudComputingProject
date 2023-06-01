@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <!-- Link to the JS -->
+        <script src="/Login_Signup/check-login.js"></script>
+
+        <!-- Link to Bootstrap and JQuery -->
+        <link rel="stylesheet" href="/bootstrap.css">
+        <script src="/jquery.js"></script>
+        <script src="/bootstrap.js"></script>
+
+        <link rel="stylesheet" href="/Login_Signup/login-style.css">
+
+        <title>Login</title>
+
+    </head>
+
+    <body>
+
+        <!-- Background -->
+        <div class="background">
+
+            <!-- Login Form -->
+            <form action="../Game/game.html" method="POST" class="form-container" id="form" onsubmit="return check();">
+                                    
+                <div class="mb-3">
+                                        
+                    <label for="email" class="form-label">Email: </label>
+                    <input type="email" class="form-control" name="email" id="email" placeholder="Email">
+                                    
+                </div>
+                                    
+                <div class="mb-3">
+                                    
+                    <label for="password" class="form-label">Password: </label>
+                    <input type="password" class="form-control" name="password" id="password" placeholder="Password" maxlength="25">
+                                    
+                </div>
+                                    
+                <button type="submit" class="btn-login">Login</button>
+                <a href="/Login_Signup/signup.html" class="btn-login">Sign up</a>
+                                
+            </form>
+        
+        </div>
+
+    </body>
+
+</html>
