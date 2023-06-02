@@ -23,11 +23,26 @@
 
     <body>
 
+        <script>
+
+            $(document).ready(function () 
+            {
+                $('#form').on('submit', async function (event) 
+                {
+                    event.preventDefault();
+                    const isValid = await check();
+                    if (isValid) 
+                    {  this.submit(); }
+                });
+            });
+
+        </script>
+
         <!-- Background -->
         <div class="background">
 
             <!-- Login Form -->
-            <form action="../Game/game.html" method="POST" class="form-container" id="form" onsubmit="return check();">
+            <form action="../Game/game.html" method="POST" class="form-container" id="form">
                                     
                 <div class="mb-3">
                                         

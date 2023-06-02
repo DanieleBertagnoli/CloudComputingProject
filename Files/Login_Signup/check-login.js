@@ -1,6 +1,6 @@
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
 
-function check()
+async function check()
 {
     var errorMessage = ""; //Error
 
@@ -26,7 +26,11 @@ function check()
 
     const email = $('#email').val()
     const password = $('#password').val()
-    handleLogin(socket, email, password);
+    
+    socket.send(JSON.stringify({ type:'login', email: email, password: password }));
+  
+    const data = await waitForMessage(socket);
+    console.log('Message received:', data);
 
     return true;   
 }
@@ -40,23 +44,18 @@ function addRedBorder(id)
   $("#" + id).css("border-width", "2px");
 }
 
-async function handleLogin(socket, email, password) 
+function waitForMessage(socket) 
 {
-    socket.send(JSON.stringify({ type:'login', email: email, password: password }));
+  return new Promise((resolve) => 
+  {
+    socket.addEventListener('message', (event) => 
+    {
+      const data = JSON.parse(event.data);
+      console.log("Receiving messages from server " + data.email);
+      sessionStorage.setItem('email', data.email);
+      sessionStorage.setItem('username', data.username);
   
-    const data = await waitForMessage(socket);
-    console.log('Message received:', data);
-  }
-
-function waitForMessage(socket) {
-    return new Promise((resolve) => {
-      socket.addEventListener('message', (event) => {
-        const data = JSON.parse(event.data);
-        console.log("Receiving messages from server " + data.email);
-        sessionStorage.setItem('email', data.email);
-        sessionStorage.setItem('username', data.username);
-  
-        resolve(data);
-      });
+      resolve(data);
     });
-  }
+  });
+}

@@ -10,3 +10,5 @@
 ✅ Implement signup.
 🚫 Implement script that spams a crap-ton of players to test load balancing.
 🚫 Deny access to the game if the user hasn't logged in.
+🚫 Manage wrong credentials in login.
+🚫 Manage already signed up users.
