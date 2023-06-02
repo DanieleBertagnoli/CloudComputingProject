@@ -3,7 +3,13 @@ const ctx = canvas.getContext('2d');
 
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
 
-const movement = {
+const playerEmail = sessionStorage.getItem('email');
+const playerUsername = sessionStorage.getItem('username');
+socket.onopen = () => 
+{ socket.send(JSON.stringify({ type: 'playerInfo', email: playerEmail, username: playerUsername })); };
+
+const movement = 
+{
   ArrowUp: false,
   ArrowDown: false,
   ArrowLeft: false,
@@ -58,6 +64,6 @@ function draw(players)
       // Add player ID above the player character
       ctx.font = '14px Arial';
       ctx.fillStyle = 'black';
-      ctx.fillText(player.id, player.x, player.y - 5);
+      ctx.fillText(player.username, player.x, player.y - 5);
     }
   }

@@ -1,11 +1,12 @@
-🚫 Change to display the username (using Email as ID in the struct)
-✅ Limit the space, the players should not go outside the canva
+✅ Change to display the username (using Email as ID in the struct).
+✅ Limit the space, the players should not go outside the canva.
 ✅ Smoother movement.
 🚫 Limit speed of player based on FPS.
-🚫 Move player object creation after login function. 😧
+✅ Move player object creation after login function.
 🚫 Collision between players.
 🚫 Implemented Zombies.
 🚫 Implement guns.
-🚫 Implement login
-🚫 Implement signup
-🚫 Implement script that spams a crap-ton of players to test load balancing
+✅ Implement login.
+✅ Implement signup.
+🚫 Implement script that spams a crap-ton of players to test load balancing.
+🚫 Deny access to the game if the user hasn't logged in.

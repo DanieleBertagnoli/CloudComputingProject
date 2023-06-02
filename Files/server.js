@@ -69,9 +69,7 @@ const playerSize = 10
 
 wss.on('connection', (socket) => 
 {
-  const player = { id: Date.now(), x: 0, y: 0, size: playerSize, color: 'red' };
-  players.push(player);
-
+  var player = null;
   //Setup all the things we need.
   const clientConfig = { width, height };
   socket.send(JSON.stringify({ type: 'clientConfig', clientConfig }));
@@ -82,14 +80,21 @@ wss.on('connection', (socket) =>
 
     if(data.type === 'login') 
     { 
-      const { email, password } = data.payload;
-      login(email, password) 
+      console.log("New login attempt detected")
+      login(data.email, data.password, socket) 
     }
 
     if(data.type === 'signup')
     { 
-      const { email, password } = data.payload;
-      signup(email, password) 
+      console.log("New signup attempt detected")
+      signup(data.email, data.password, data.username) 
+    }
+
+    if(data.type === 'playerInfo')
+    {
+      console.log("Spawning player:" + data.username)
+      player = { email: data.email, username:data.username, x: 0, y: 0, size: playerSize, color: 'red' };
+      players.push(player);
     }
 
     if(data.type === 'game')
@@ -174,32 +179,62 @@ connection.connect((err) =>
 });
 
 
-async function login(email, password) 
+async function login(email, password, socket) 
 {
   return new Promise((resolve, reject) => 
   {
-    const sql = 'SELECT * FROM users WHERE email = ? AND password = ?';
+    const sql = 'SELECT email, username FROM users WHERE email = ? AND password = ?';
     connection.query(sql, [email, password], (err, results) => 
     {
       if (err) 
-      { reject(err); } 
+      {   
+        console.error('Error during sign up:', err);
+        reject(err); 
+      } 
       else 
-      { resolve(results[0]); }
+      { 
+        resolve(results[0]); 
+        console.log('A user has logged in:', results[0]);
+        socket.send(JSON.stringify({ email: results[0].email, username: results[0].username }));
+      }
     });
   });
 }
 
-async function signup(email, password) 
+async function signup(email, password, username) 
 {
+  const createTableSql = `
+      CREATE TABLE IF NOT EXISTS users (
+        email VARCHAR(255) NOT NULL PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL
+      );
+    `;
+  
+  connection.query(createTableSql, (err) => 
+  {
+    if (err) 
+    {
+        console.error('Error during table creation:', err);
+        reject(err);
+    }
+  });
+
   return new Promise((resolve, reject) => 
   {
-    const sql = 'INSERT INTO users SET (email, password) VALUES (?, ?)';
-    connection.query(sql, [email, password], (err, results) => 
+    const sql = 'INSERT INTO users (email, password, username) VALUES (?, ?, ?)';
+    connection.query(sql, [email, password, username], (err, results) => 
     {
       if (err) 
-      { reject(err); } 
+      { 
+        console.error('Error during sign up:', err);
+        reject(err); 
+      } 
       else 
-      { resolve(results[0]); }
+      {
+        console.log('A new user has been signed up!'); 
+        resolve(results[0]); 
+      }
     });
   });
 }

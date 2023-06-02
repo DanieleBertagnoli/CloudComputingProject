@@ -1,3 +1,5 @@
+const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
+
 function check()
 {
     var errorMessage = ""; //Error
@@ -20,6 +22,12 @@ function check()
         errorMessage = "Please, insert the email"; 
     }
 
+    if($("#username").val() == "") // If the username is empty
+    { 
+        addRedBorder("username")
+        errorMessage = "Please, insert the username"; 
+    }
+
     if(errorMessage != "") // If there is at least one error
     { 
         if(document.getElementById("errorMessage") == null) // If the element does not exist, create it
@@ -30,8 +38,8 @@ function check()
 
     const email = $('#email').val()
     const password = $('#password').val()
-    const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
-    socket.send(JSON.stringify({ email: email, password: password}));
+    const username = $('#username').val()
+    socket.send(JSON.stringify({ type:'signup', email: email, password: password, username: username }));
 
     return true
 }
