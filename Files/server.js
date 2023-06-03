@@ -84,7 +84,7 @@ app.post('/signup', async (req, res) =>
 
 /* All the routes specified after this middleware are protected */
 app.use(checkLoggedIn);
-app.use('/game', express.static('./Game/game.html'));
+app.use('/game', express.static('./Game/game.html')); 
 
 const server = http.createServer(app);
 server.listen(3000, () => {
@@ -270,12 +270,13 @@ const getSessionFromRequest = async (req, sessionStore) => {
 const wss = new WebSocket.Server({ server });
 
 let players = [];
+let zombies = [];
 
 const speed = 1;
 const width = 800; const height = 600;
 const playerSize = 10
 
-let prova = new Map();
+let lastPlayerMovement = new Map();
 
 wss.on('connection', async (socket, req) => 
 {
@@ -285,7 +286,6 @@ wss.on('connection', async (socket, req) =>
   console.log("Spawning player:" + session.user.username)
   player = { email: session.user.email, username: session.user.username, x: 0, y: 0, size: playerSize, color: 'red',   gun: { x: 0, y: 0, size: 5, color: 'black' }, bullets: [] };
   players.push(player);
-  //Setup all the things we need.
 
   const clientConfig = { width, height };
   socket.send(JSON.stringify({ type: 'clientConfig', clientConfig }));
@@ -296,8 +296,7 @@ wss.on('connection', async (socket, req) =>
 
     if(data.type === 'game')
     {
-      // prova.set(player.email, message.movement);
-      playerMovement(message, player); 
+      lastPlayerMovement.set(player.email, message);
     }
   });
   // socket.on('contextmenu', (event) => {
@@ -319,7 +318,12 @@ wss.on('connection', async (socket, req) =>
   socket.on('close', () => 
   { 
     if(player != null)
-    { players = players.filter((p) => p.email !== player.email); } 
+    { players = players.filter((p) => p.email !== player.email); }
+
+    if (players.length == 0)
+    {
+      process.exit(0);
+    }
   });
 });
 
@@ -338,6 +342,10 @@ wss.on('connection', async (socket, req) =>
 
 function playerMovement(message, player) 
 {
+  // console.log("PRINTING", message);
+  if (message == null)
+    return;
+
   const { movement } = JSON.parse(message);
   let newX = player.x;
   let newY = player.y;
@@ -362,36 +370,130 @@ function playerMovement(message, player)
   else 
   { player.x = newX; player.y = newY; }
 
+  // wss.clients.forEach((client) => 
+  // {
+  //   if (client.readyState === WebSocket.OPEN)
+  //   { 
+  //     client.send(JSON.stringify({type: 'renderData', players })); 
+  //   }
+  // });
+}
+
+function isInsideSafeCircle(players, x, y, safeRadius) {
+  for (const player of players) {
+    const distance = Math.sqrt(
+      Math.pow(player.x - x, 2) + Math.pow(player.y - y, 2)
+    );
+
+    if (distance < safeRadius) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight) {
+  let spawnX, spawnY;
+
+  do {
+    spawnX = Math.random() * worldWidth;
+    spawnY = Math.random() * worldHeight;
+  } while (isInsideSafeCircle(players, spawnX, spawnY, safeRadius));
+
+  return {
+    x: spawnX,
+    y: spawnY,
+  };
+}
+
+function render(zombies, players)
+{
   wss.clients.forEach((client) => 
   {
     if (client.readyState === WebSocket.OPEN)
     { 
-      client.send(JSON.stringify({type: 'renderData', players })); 
+      client.send(JSON.stringify({type: 'renderData', players, zombies })); 
     }
   });
 }
 
-// function gameLoop() {
-//   const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
-//   let lastUpdateTime = performance.now();
-//   let accumulatedTime = 0;
+function distance(x1, y1, x2, y2) {
+  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+}
 
-//   setInterval(() => {
-//     const currentTime = performance.now();
-//     const deltaTime = currentTime - lastUpdateTime;
-//     lastUpdateTime = currentTime;
-//     accumulatedTime += deltaTime;
+function findClosestPlayer(zombie, players) {
+  let closestPlayer = null;
+  let minDistance = Infinity;
 
-//     // Player movement
-//     // Spawn zombies
-//     // Collision detection (zombies and players)
-//     // Rendering
+  for (const player of players) {
+    const dist = distance(zombie.x, zombie.y, player.x, player.y);
 
-//     while (accumulatedTime >= fixedTimeStep) {
-//       accumulatedTime -= fixedTimeStep;
-//       //updateBullets();
-//     }
-//   }, fixedTimeStep);
-// }
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestPlayer = player;
+    }
+  }
 
-// gameLoop();
+  return closestPlayer;
+}
+
+function moveZombieTowardsPlayer(zombie, player, speed) {
+  const dist = distance(zombie.x, zombie.y, player.x, player.y);
+  const deltaX = (player.x - zombie.x) / dist;
+  const deltaY = (player.y - zombie.y) / dist;
+
+  zombie.x += deltaX * zombie.speed;
+  zombie.y += deltaY * zombie.speed;
+}
+
+function gameLoop() {
+  const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
+  let lastUpdateTime = performance.now();
+  let accumulatedTime = 0;
+
+  setInterval(() => {
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastUpdateTime;
+    lastUpdateTime = currentTime;
+    accumulatedTime += deltaTime;
+
+    // Player movement
+    for(const player of players)
+    {
+      playerMovement(lastPlayerMovement.get(player.email), player);
+    }
+
+    //Spawn new zombies if a new player connects
+    if(zombies.length < 20 * players.length)
+    {
+      zombieCoord = getRandomSpawnPosition(players, 3, width, height);
+      zombies.push({x: zombieCoord.x, y: zombieCoord.y, size: 10, color: 'green', speed: Math.random() * (0.7 - 0.1) + 0.1});
+    }
+
+    //Remove zombies if a player disconnects.
+    if(zombies.length > 20 * players.length)
+    {
+      zombies.pop();
+    }
+
+    //Update Zombies
+    for (const zombie of zombies) {
+      const closestPlayer = findClosestPlayer(zombie, players);
+      moveZombieTowardsPlayer(zombie, closestPlayer);
+    }
+
+    // Collision detection (zombies and players)
+       // a zombie have to be identified by x and y 
+
+    while (accumulatedTime >= fixedTimeStep) {
+      //Render Stuff
+
+      render(zombies, players);
+      accumulatedTime -= fixedTimeStep;
+      //updateBullets();
+    }
+  }, fixedTimeStep);
+}
+
+gameLoop();

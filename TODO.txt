@@ -4,9 +4,9 @@
 ✅ Limit speed of player based on FPS.
 ✅ Move player object creation after login function.
 🚫 Take direction of mouse and use it for bullets.
-🚫 Make game loop on server too.
+✅ Make game loop on server too.
 🚫 Implement guns.
-🚫 Implemented Zombies.
+✅ Implemented Zombies.
 ✅ Implement login.
 ✅ Implement signup.
 🚫 Implement script that spams a crap-ton of players to test load balancing.

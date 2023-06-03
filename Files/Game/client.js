@@ -25,7 +25,8 @@ socket.addEventListener('message', (event) =>
   else
   {
     const players = data.players;
-    draw(players);
+    const zombies = data.zombies;
+    render(players, zombies);
   }
 });
 
@@ -43,11 +44,6 @@ document.addEventListener('keyup', (event) => {
     movement[event.key] = false;
   }
 });
-
-// const fixedTimeStep = 1000 / 60; // 60 updates per second
-// let accumulatedTime = 0;
-
-// let lastUpdateTime = performance.now();
 
 function gameLoop() {
   const fixedTimeStep = 1000 / 60; // Update the game 60 times per second
@@ -73,24 +69,10 @@ function gameLoop() {
   }, fixedTimeStep);
 }
 
-// function gameLoop() {
-//   const currentTime = performance.now();
-//   const deltaTime = currentTime - lastUpdateTime;
-
-//   lastUpdateTime = currentTime;
-//   accumulatedTime += deltaTime;
-
-//   while (accumulatedTime >= fixedTimeStep) {
-//     socket.send(JSON.stringify({ type: 'game', movement }));
-//     accumulatedTime -= fixedTimeStep;
-//   }
-  
-//   requestAnimationFrame(gameLoop);
-// }
-
-function draw(players) 
+function render(players, zombies) 
 {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   for (const player of players) 
   {
     ctx.fillStyle = player.color;
@@ -100,5 +82,11 @@ function draw(players)
     ctx.font = '14px Arial';
     ctx.fillStyle = 'black';
     ctx.fillText(player.username, player.x, player.y - 5);
+  }
+
+  for (const zombie of zombies) 
+  {
+    ctx.fillStyle = zombie.color;
+    ctx.fillRect(zombie.x, zombie.y, zombie.size, zombie.size);
   }
 }
