@@ -30,9 +30,7 @@
                 $('#form').on('submit', async function (event) 
                 {
                     event.preventDefault();
-                    const isValid = await check();
-                    if (isValid) 
-                    {  this.submit(); }
+                    await check();
                 });
             });
 
@@ -42,7 +40,7 @@
         <div class="background">
 
             <!-- Login Form -->
-            <form action="../Game/game.html" method="POST" class="form-container" id="form">
+            <form action="/login" method="POST" class="form-container" id="form">
                                     
                 <div class="mb-3">
                                         

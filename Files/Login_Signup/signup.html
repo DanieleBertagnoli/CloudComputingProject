@@ -27,7 +27,7 @@
         <div class="background">
 
             <!-- Form -->
-            <form action="/Login_Signup/login.html" method="POST" class="form-container" id="form" onsubmit="return check();">
+            <form action="/Login_Signup/login.html" method="POST" class="form-container" id="form">
 
                 <!-- Email -->
                 <div class="mb-3">
@@ -68,6 +68,19 @@
             </form>
 
         </div>
+
+        <script>
+
+            $(document).ready(function () 
+            {
+                $('#form').on('submit', async function (event) 
+                {
+                    event.preventDefault();
+                    await check();
+                });
+            });
+
+        </script>
 
     </body>
 

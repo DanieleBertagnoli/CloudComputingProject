@@ -2,148 +2,101 @@ const http = require('http');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
+const session = require('express-session');
+const cookie = require('cookie');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
-const server = http.createServer((req, res) => 
-{
-  const filePath = getFilePath(req.url);
-  const contentType = getContentType(filePath);
+const app = express();
 
-  if (fs.existsSync(filePath)) 
-  {
-    res.writeHead(200, { 'Content-Type': contentType });
-    res.end(fs.readFileSync(filePath));
-  } 
-  else 
-  {
-    res.writeHead(404);
-    res.end();
-  }
+// Configure express-session middleware
+const sessionStore = new session.MemoryStore(); // Create a separate variable for the session store
+
+const sessionMiddleware = session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  store: sessionStore, // Use the session store variable here
+  cookie: { secure: false, maxAge: 3600000 }, // Customize the cookie settings as needed
 });
 
-function getFilePath(url) 
+app.use(sessionMiddleware);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+/* ROUTES SERVED WITHOUT THE NEED OF BEING LOGGED */
+
+app.use('/jquery.js', express.static('../node_modules/jquery/dist/jquery.min.js'));
+app.use('/bootstrap.js', express.static('../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'));
+app.use('/bootstrap.css', express.static('../node_modules/bootstrap/dist/css/bootstrap.min.css'));
+app.use('/jquery.min.js.map', express.static('../node_modules/jquery/dist/jquery.min.js.map'));
+app.use('/bootstrap.bundle.min.js.map', express.static('../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js.map'));
+app.use('/bootstrap.min.css.map', express.static('../node_modules/bootstrap/dist/css/bootstrap.min.css.map'));
+app.get('/Game/game.html', (req, res) => { res.redirect('/game'); });
+app.use(express.static('.'));
+
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, './Login_Signup/login.html')); }); // Defalut route
+
+/* Function used to implement a middleware that checks whether the user is logged or not */
+function checkLoggedIn(req, res, next) 
 {
-  if (url === '/') 
-  { return './Login_Signup/login.html'; } 
-  
-  else if (url === '/jquery.js') 
-  { return '../node_modules/jquery/dist/jquery.min.js'; } 
-  
-  else if (url === '/bootstrap.js') 
-  { return '../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'; } 
-  
-  else if (url === '/bootstrap.css') 
-  { return '../node_modules/bootstrap/dist/css/bootstrap.min.css'; }
-  
+  if (req.session.loggedIn) 
+  { next(); } 
   else 
-  { return '.' + url; }
+  { res.redirect('/'); } // Redirect to login page if not logged in
 }
 
-function getContentType(filePath) 
+/* Function called when the route /login is required */
+app.post('/login', async (req, res) => 
 {
-  const ext = path.extname(filePath);
-
-  switch (ext) 
+  try 
   {
-    case '.html':
-      return 'text/html';
-    case '.css':
-      return 'text/css';
-    case '.js':
-      return 'application/javascript';
-    default:
-      return 'application/octet-stream';
-  }
-}
-
-
-
-/* GAME LOGIC */
-
-const wss = new WebSocket.Server({ server });
-
-let players = [];
-
-const speed = 4;
-const width = 800; const height = 600;
-const playerSize = 10
-
-wss.on('connection', (socket) => 
-{
-  var player = null;
-  //Setup all the things we need.
-  const clientConfig = { width, height };
-  socket.send(JSON.stringify({ type: 'clientConfig', clientConfig }));
-
-  socket.on('message', (message) => 
-  {
-    const data = JSON.parse(message);
-
-    if(data.type === 'login') 
-    { 
-      console.log("New login attempt detected")
-      login(data.email, data.password, socket) 
-    }
-
-    if(data.type === 'signup')
-    { 
-      console.log("New signup attempt detected")
-      signup(data.email, data.password, data.username) 
-    }
-
-    if(data.type === 'playerInfo')
+    const user = await login(req.body.email, req.body.password); // Get values from the request and call login function
+    if(user) // If the credentials are correct then set all the parameters in the request that identify the user as logged
     {
-      console.log("Spawning player:" + data.username)
-      player = { email: data.email, username:data.username, x: 0, y: 0, size: playerSize, color: 'red' };
-      players.push(player);
-    }
-
-    if(data.type === 'game')
-    { gameLogic(message, player); }
-  });
-
-  socket.on('close', () => 
-  { players = players.filter((p) => p.id !== player.id); });
+      req.session.loggedIn = true;
+      req.session.user = user;
+      res.sendStatus(200);
+    } 
+    else 
+    { res.status(401).send('Invalid email or password'); } // Otherwise send back an error message
+  } 
+  catch (error) 
+  { res.status(500).send('Error while logging in'); }
 });
 
-server.listen(3000, () => {
-    console.log('Server listening on port 3000');
-});
-
-function gameLogic(message, player) 
+/* Function called when the route /login is required */
+app.post('/signup', async (req, res) => 
 {
-  const { movement } = JSON.parse(message);
-  let newX = player.x;
-  let newY = player.y;
-  
-  if (movement.ArrowUp) newY -= speed;
-  if (movement.ArrowDown) newY += speed;
-  if (movement.ArrowLeft) newX -= speed;
-  if (movement.ArrowRight) newX += speed;
-  /* Bounding Boxes */
-  
-  // X-axis
-  if (newX < 0)
-  { player.x = 0; }
-  else if (newX > (width - playerSize))
-  { player.x = (width - playerSize); }
-  //Y-axis
-  else if (newY < 0)
-  { player.y = 0; }
-  else if (newY > (height - playerSize))
-  { player.y = (height - playerSize); }
-  
-  else 
-  { player.x = newX; player.y = newY; }
-  wss.clients.forEach((client) => 
+  try 
   {
-    if (client.readyState === WebSocket.OPEN)
-    { client.send(JSON.stringify({type: 'renderData', players })); }
-  });
-}
+    const newUser = await signup(req.body.email, req.body.password, req.body.username);  // Get values from the request and call signup function
+    if(!newUser) // If the user is already present in the DB
+    { res.status(401).send('User is already signed up'); } // Send back an error message
+    else 
+    { res.sendStatus(200); }
+  } 
+  catch (error) 
+  { console.log(error); res.status(500).send('Error while signing up'); }
+});
+
+/* All the routes specified after this middleware are protected */
+app.use(checkLoggedIn);
+app.use('/game', express.static('./Game/game.html'));
+
+const server = http.createServer(app);
+server.listen(3000, () => {
+  console.log('Server listening on port 3000');
+});
 
 
 
-/* DATABASE MANAGEMENT */
+
+
+
+                                                                            /* DATABASE MANAGEMENT */
 
 const isProduction = false;
 
@@ -179,28 +132,46 @@ connection.connect((err) =>
 });
 
 
-async function login(email, password, socket) 
-{
+async function login(email, password)
+ {
+  console.log("Login attempt detected from " + email);
+  
   return new Promise((resolve, reject) => 
   {
-    const sql = 'SELECT email, username FROM users WHERE email = ? AND password = ?';
-    connection.query(sql, [email, password], (err, results) => 
-    {
+    // Select the hashed password from the database
+    const sql = 'SELECT email, password, username FROM users WHERE email = ?';
+    connection.query(sql, [email], async (err, results) => {
       if (err) 
-      {   
-        console.error('Error during sign up:', err);
-        reject(err); 
+      {
+        console.error('Error during login:', err);
+        reject(err);
       } 
       else 
-      { 
-        resolve(results[0]); 
-        console.log('A user has logged in:', results[0]);
-        socket.send(JSON.stringify({ email: results[0].email, username: results[0].username }));
+      {
+        if (results.length > 0) 
+        {
+          try // Compare the provided password with the stored hashed password
+          {
+            const match = await bcrypt.compare(password, results[0].password);
+            if (match) // Passwords match, return the user's email and username
+            { resolve({ email: results[0].email, username: results[0].username }); } 
+            else // Passwords don't match, return null
+            { resolve(null); }
+          } 
+          catch (err) 
+          {
+            console.error('Error during password comparison:', err);
+            reject(err);
+          }
+        } 
+        else // User not found, return null
+        { resolve(null); }
       }
     });
   });
 }
 
+/* Function used to add the user to the DataBase */
 async function signup(email, password, username) 
 {
   const createTableSql = `
@@ -209,32 +180,218 @@ async function signup(email, password, username)
         username VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL
       );
-    `;
-  
+    `; // Create the table if does not exists
+
   connection.query(createTableSql, (err) => 
   {
     if (err) 
     {
-        console.error('Error during table creation:', err);
-        reject(err);
+      console.error('Error during table creation:', err);
+      reject(err);
     }
   });
 
-  return new Promise((resolve, reject) => 
+  // Check if the user is already present in the DB
+  return new Promise(async (resolve, reject) => 
   {
-    const sql = 'INSERT INTO users (email, password, username) VALUES (?, ?, ?)';
-    connection.query(sql, [email, password, username], (err, results) => 
+    let sql = 'SELECT * FROM users WHERE email = ?';
+    connection.query(sql, [email], async (err, results) => 
     {
       if (err) 
-      { 
+      {
         console.error('Error during sign up:', err);
-        reject(err); 
+        reject(err);
+      }
+
+      if (results.length > 0) 
+      {
+        // The user is already signed up
+        resolve(false);
       } 
       else 
       {
-        console.log('A new user has been signed up!'); 
-        resolve(results[0]); 
+        // Hash the password
+        try 
+        {
+          const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+          // Insert the user into the DB
+          sql = 'INSERT INTO users (email, password, username) VALUES (?, ?, ?)';
+          connection.query(sql, [email, hashedPassword, username], (err, results) => {
+            if (err) 
+            {
+              console.error('Error during sign up:', err);
+              reject(err);
+            } 
+            else 
+            { resolve(true); }
+          });
+        } 
+        catch (err) 
+        {
+          console.error('Error during password hashing:', err);
+          reject(err);
+        }
       }
     });
   });
 }
+
+
+
+
+
+                                                                            /* GAME LOGIC */
+
+
+const getSessionFromRequest = async (req, sessionStore) => {
+  const cookies = cookie.parse(req.headers.cookie || '');
+  const sessionId = cookies['connect.sid'];
+
+  if (sessionId) {
+    // Remove the "s:" prefix and the signature from the session ID
+    const unsignedSessionId = sessionId.slice(2).split('.')[0];
+
+    return new Promise((resolve, reject) => {
+      sessionStore.get(unsignedSessionId, (err, session) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(session);
+        }
+      });
+    });
+  } else {
+    return null;
+  }
+};
+
+
+const wss = new WebSocket.Server({ server });
+
+let players = [];
+
+const speed = 1;
+const width = 800; const height = 600;
+const playerSize = 10
+
+let prova = new Map();
+
+wss.on('connection', async (socket, req) => 
+{
+  const session = await getSessionFromRequest(req, sessionStore);
+
+  var player = null;
+  console.log("Spawning player:" + session.user.username)
+  player = { email: session.user.email, username: session.user.username, x: 0, y: 0, size: playerSize, color: 'red',   gun: { x: 0, y: 0, size: 5, color: 'black' }, bullets: [] };
+  players.push(player);
+  //Setup all the things we need.
+
+  const clientConfig = { width, height };
+  socket.send(JSON.stringify({ type: 'clientConfig', clientConfig }));
+
+  socket.on('message', (message) => 
+  {
+    const data = JSON.parse(message);
+
+    if(data.type === 'game')
+    {
+      // prova.set(player.email, message.movement);
+      playerMovement(message, player); 
+    }
+  });
+  // socket.on('contextmenu', (event) => {
+  //   event.preventDefault();
+
+  //   const rect = canvas.getBoundingClientRect();
+  //   const mouseX = event.clientX - rect.left;
+  //   const mouseY = event.clientY - rect.top;
+
+  //   const contextMenuMessage = {
+  //     type: 'contextMenu',
+  //     mouseX: mouseX,
+  //     mouseY: mouseY
+  //   };
+
+  //   socket.send(JSON.stringify(contextMenuMessage));
+  // });
+
+  socket.on('close', () => 
+  { 
+    if(player != null)
+    { players = players.filter((p) => p.email !== player.email); } 
+  });
+});
+
+
+// function updateBullets() {
+//   for (const player of players) {
+//     for (const bullet of player.bullets) {
+//       bullet.x += bullet.direction.x * speed;
+//       bullet.y += bullet.direction.y * speed;
+
+//       // verify the collisions of the bullet with other players or obstacles
+//       // to implement based on your game rules
+//     }
+//   }
+// }
+
+function playerMovement(message, player) 
+{
+  const { movement } = JSON.parse(message);
+  let newX = player.x;
+  let newY = player.y;
+  
+  if (movement.ArrowUp) newY -= speed;
+  if (movement.ArrowDown) newY += speed;
+  if (movement.ArrowLeft) newX -= speed;
+  if (movement.ArrowRight) newX += speed;
+  /* Bounding Boxes */
+  
+  // X-axis
+  if (newX < 0)
+  { player.x = 0; }
+  else if (newX > (width - playerSize))
+  { player.x = (width - playerSize); }
+  //Y-axis
+  else if (newY < 0)
+  { player.y = 0; }
+  else if (newY > (height - playerSize))
+  { player.y = (height - playerSize); }
+  
+  else 
+  { player.x = newX; player.y = newY; }
+
+  wss.clients.forEach((client) => 
+  {
+    if (client.readyState === WebSocket.OPEN)
+    { 
+      client.send(JSON.stringify({type: 'renderData', players })); 
+    }
+  });
+}
+
+// function gameLoop() {
+//   const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
+//   let lastUpdateTime = performance.now();
+//   let accumulatedTime = 0;
+
+//   setInterval(() => {
+//     const currentTime = performance.now();
+//     const deltaTime = currentTime - lastUpdateTime;
+//     lastUpdateTime = currentTime;
+//     accumulatedTime += deltaTime;
+
+//     // Player movement
+//     // Spawn zombies
+//     // Collision detection (zombies and players)
+//     // Rendering
+
+//     while (accumulatedTime >= fixedTimeStep) {
+//       accumulatedTime -= fixedTimeStep;
+//       //updateBullets();
+//     }
+//   }, fixedTimeStep);
+// }
+
+// gameLoop();

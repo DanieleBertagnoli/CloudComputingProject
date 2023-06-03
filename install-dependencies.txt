@@ -6,3 +6,5 @@ npm install ws
 npm install jquery
 npm install bootstrap
 npm install mysql2
+npm install express express-session
+npm install bcrypt

@@ -2,12 +2,6 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
-
-const playerEmail = sessionStorage.getItem('email');
-const playerUsername = sessionStorage.getItem('username');
-socket.onopen = () => 
-{ socket.send(JSON.stringify({ type: 'playerInfo', email: playerEmail, username: playerUsername })); };
-
 const movement = 
 {
   ArrowUp: false,
@@ -25,10 +19,12 @@ socket.addEventListener('message', (event) =>
     const { width, height } = data.clientConfig;
     canvas.width = width;
     canvas.height = height;
+    // requestAnimationFrame(gameLoop);
+    gameLoop();
   }
   else
   {
-    const players = data.players
+    const players = data.players;
     draw(players);
   }
 });
@@ -48,22 +44,61 @@ document.addEventListener('keyup', (event) => {
   }
 });
 
-// Send movement updates every 100 milliseconds (10 times per second)
-const movementUpdateInterval = 7;
-setInterval(() => {
-  socket.send(JSON.stringify({ type: 'game', movement }));
-}, movementUpdateInterval);
+// const fixedTimeStep = 1000 / 60; // 60 updates per second
+// let accumulatedTime = 0;
+
+// let lastUpdateTime = performance.now();
+
+function gameLoop() {
+  const fixedTimeStep = 1000 / 60; // Update the game 60 times per second
+  let lastUpdateTime = performance.now();
+  let accumulatedTime = 0;
+
+  setInterval(() => {
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastUpdateTime;
+    lastUpdateTime = currentTime;
+    accumulatedTime += deltaTime;
+
+    // Player movement
+    // Spawn zombies
+    // Collision detection (zombies and players)
+    // Rendering
+
+    while (accumulatedTime >= fixedTimeStep) {
+      socket.send(JSON.stringify({ type: 'game', movement }));
+      accumulatedTime -= fixedTimeStep;
+      //updateBullets();
+    }
+  }, fixedTimeStep);
+}
+
+// function gameLoop() {
+//   const currentTime = performance.now();
+//   const deltaTime = currentTime - lastUpdateTime;
+
+//   lastUpdateTime = currentTime;
+//   accumulatedTime += deltaTime;
+
+//   while (accumulatedTime >= fixedTimeStep) {
+//     socket.send(JSON.stringify({ type: 'game', movement }));
+//     accumulatedTime -= fixedTimeStep;
+//   }
+  
+//   requestAnimationFrame(gameLoop);
+// }
 
 function draw(players) 
 {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const player of players) {
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.size, player.size);
-  
-      // Add player ID above the player character
-      ctx.font = '14px Arial';
-      ctx.fillStyle = 'black';
-      ctx.fillText(player.username, player.x, player.y - 5);
-    }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const player of players) 
+  {
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+
+    // Add player ID above the player character
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'black';
+    ctx.fillText(player.username, player.x, player.y - 5);
   }
+}
