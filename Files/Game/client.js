@@ -10,6 +10,8 @@ const movement =
   ArrowRight: false,
 };
 
+let shot = null;
+
 socket.addEventListener('message', (event) => 
 {
   const data = JSON.parse(event.data);
@@ -26,50 +28,58 @@ socket.addEventListener('message', (event) =>
   {
     const players = data.players;
     const zombies = data.zombies;
-    render(players, zombies);
+    const bullets = data.bullets
+    render(players, zombies, bullets);
   }
 });
 
 document.addEventListener('keydown', (event) => 
 {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) 
-  {
-    movement[event.key] = true;
-  }
+  { movement[event.key] = true; }
 });
 
-document.addEventListener('keyup', (event) => {
+document.addEventListener('keyup', (event) => 
+{
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) 
-  {
-    movement[event.key] = false;
-  }
+  { movement[event.key] = false; }
 });
 
-function gameLoop() {
+// Add an event listener for mousedown events
+canvas.addEventListener('mousedown', (event) => 
+{
+  const rect = canvas.getBoundingClientRect();
+  let mouseX = event.clientX - rect.left;
+  let mouseY = event.clientY - rect.top;
+
+  shot = { mouseX: mouseX, mouseY: mouseY };
+
+});
+
+
+function gameLoop() 
+{
   const fixedTimeStep = 1000 / 60; // Update the game 60 times per second
   let lastUpdateTime = performance.now();
   let accumulatedTime = 0;
 
-  setInterval(() => {
+  setInterval(() => 
+  {
     const currentTime = performance.now();
     const deltaTime = currentTime - lastUpdateTime;
     lastUpdateTime = currentTime;
     accumulatedTime += deltaTime;
 
-    // Player movement
-    // Spawn zombies
-    // Collision detection (zombies and players)
-    // Rendering
-
-    while (accumulatedTime >= fixedTimeStep) {
-      socket.send(JSON.stringify({ type: 'game', movement }));
+    while (accumulatedTime >= fixedTimeStep) 
+    {
+      socket.send(JSON.stringify({ type: 'game', movement: movement, shot: shot }));
+      shot = null;
       accumulatedTime -= fixedTimeStep;
-      //updateBullets();
     }
   }, fixedTimeStep);
 }
 
-function render(players, zombies) 
+function render(players, zombies, bullets) 
 {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -88,5 +98,14 @@ function render(players, zombies)
   {
     ctx.fillStyle = zombie.color;
     ctx.fillRect(zombie.x, zombie.y, zombie.size, zombie.size);
+  }
+
+  // Render bullets
+  for (const bullet of bullets) 
+  {
+    ctx.fillStyle = bullet.color;
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, bullet.size, 0, 2 * Math.PI);
+    ctx.fill();
   }
 }

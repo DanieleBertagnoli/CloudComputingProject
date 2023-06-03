@@ -54,14 +54,17 @@ app.post('/login', async (req, res) =>
   try 
   {
     const user = await login(req.body.email, req.body.password); // Get values from the request and call login function
-    if(user) // If the credentials are correct then set all the parameters in the request that identify the user as logged
+    if(user && isNaN(user)) // If the credentials are correct then set all the parameters in the request that identify the user as logged
     {
       req.session.loggedIn = true;
       req.session.user = user;
       res.sendStatus(200);
     } 
-    else 
+    else if(user == 1)
     { res.status(401).send('Invalid email or password'); } // Otherwise send back an error message
+    
+    else if(user == 2)
+    { res.status(401).send('User already logged'); } // Otherwise send back an error message
   } 
   catch (error) 
   { res.status(500).send('Error while logging in'); }
@@ -79,7 +82,7 @@ app.post('/signup', async (req, res) =>
     { res.sendStatus(200); }
   } 
   catch (error) 
-  { console.log(error); res.status(500).send('Error while signing up'); }
+  { res.status(500).send('Error while signing up'); }
 });
 
 /* All the routes specified after this middleware are protected */
@@ -133,30 +136,46 @@ connection.connect((err) =>
 
 
 async function login(email, password)
- {
+{
   console.log("Login attempt detected from " + email);
-  
+
   return new Promise((resolve, reject) => 
   {
-    // Select the hashed password from the database
-    const sql = 'SELECT email, password, username FROM users WHERE email = ?';
-    connection.query(sql, [email], async (err, results) => {
+    // Check if the user exists
+    let sql = 'SELECT email, password, username, isLogged FROM users WHERE email = ?';
+    connection.query(sql, [email], async (err, results) => 
+    {
       if (err) 
       {
         console.error('Error during login:', err);
         reject(err);
       } 
+        
       else 
       {
-        if (results.length > 0) 
+        if (results.length > 0 && results[0].isLogged == 1) // User was already logged, return 2
+        { resolve(2); }
+        else if (results.length > 0) 
         {
           try // Compare the provided password with the stored hashed password
           {
             const match = await bcrypt.compare(password, results[0].password);
             if (match) // Passwords match, return the user's email and username
-            { resolve({ email: results[0].email, username: results[0].username }); } 
-            else // Passwords don't match, return null
-            { resolve(null); }
+            { 
+              resolve({ email: results[0].email, username: results[0].username }); 
+              // Update the user status as logged in
+              sql = 'UPDATE users SET isLogged = 1 WHERE email = ?';
+              connection.query(sql, [email], async (err, results) => 
+              {
+                if (err) 
+                {
+                  console.error('Error during login:', err);
+                  reject(err);
+                }
+              });
+            } 
+            else // Passwords don't match, return 1
+            { resolve(1); }
           } 
           catch (err) 
           {
@@ -164,12 +183,33 @@ async function login(email, password)
             reject(err);
           }
         } 
-        else // User not found, return null
-        { resolve(null); }
+            
+        else // User not found, return 1
+        { resolve(1); }
       }
     });
   });
 }
+
+
+async function logout(email)
+{
+  console.log("Logout attempt detected from " + email);
+
+  return new Promise((resolve, reject) => 
+  {
+    sql = 'UPDATE users SET isLogged = 0 WHERE email = ?';
+    connection.query(sql, [email], async (err, results) => 
+    {
+      if (err) 
+      {
+        console.error('Error during login:', err);
+        reject(err);
+      }
+    });
+  });
+}
+
 
 /* Function used to add the user to the DataBase */
 async function signup(email, password, username) 
@@ -178,7 +218,8 @@ async function signup(email, password, username)
       CREATE TABLE IF NOT EXISTS users (
         email VARCHAR(255) NOT NULL PRIMARY KEY,
         username VARCHAR(255) NOT NULL,
-        password VARCHAR(255) NOT NULL
+        password VARCHAR(255) NOT NULL,
+        isLogged TINYINT(1) NOT NULL
       );
     `; // Create the table if does not exists
 
@@ -216,8 +257,8 @@ async function signup(email, password, username)
           const hashedPassword = await bcrypt.hash(password, saltRounds);
 
           // Insert the user into the DB
-          sql = 'INSERT INTO users (email, password, username) VALUES (?, ?, ?)';
-          connection.query(sql, [email, hashedPassword, username], (err, results) => {
+          sql = 'INSERT INTO users (email, password, username, isLogged) VALUES (?, ?, ?, ?)';
+          connection.query(sql, [email, hashedPassword, username, 0], (err, results) => {
             if (err) 
             {
               console.error('Error during sign up:', err);
@@ -244,26 +285,29 @@ async function signup(email, password, username)
                                                                             /* GAME LOGIC */
 
 
-const getSessionFromRequest = async (req, sessionStore) => {
+const getSessionFromRequest = async (req, sessionStore) => 
+{
   const cookies = cookie.parse(req.headers.cookie || '');
   const sessionId = cookies['connect.sid'];
 
-  if (sessionId) {
+  if (sessionId) 
+  {
     // Remove the "s:" prefix and the signature from the session ID
     const unsignedSessionId = sessionId.slice(2).split('.')[0];
 
-    return new Promise((resolve, reject) => {
-      sessionStore.get(unsignedSessionId, (err, session) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(session);
-        }
+    return new Promise((resolve, reject) => 
+    {
+      sessionStore.get(unsignedSessionId, (err, session) => 
+      {
+        if (err) 
+        { reject(err); } 
+        else 
+        { resolve(session); }
       });
     });
-  } else {
-    return null;
-  }
+  } 
+  else 
+  { return null; }
 };
 
 
@@ -271,10 +315,13 @@ const wss = new WebSocket.Server({ server });
 
 let players = [];
 let zombies = [];
+let bullets = [];
 
+const numZombiesPerPlayer = 1;
 const speed = 1;
 const width = 800; const height = 600;
 const playerSize = 10
+const bulletSpeed = 3;
 
 let lastPlayerMovement = new Map();
 
@@ -284,7 +331,7 @@ wss.on('connection', async (socket, req) =>
 
   var player = null;
   console.log("Spawning player:" + session.user.username)
-  player = { email: session.user.email, username: session.user.username, x: 0, y: 0, size: playerSize, color: 'red',   gun: { x: 0, y: 0, size: 5, color: 'black' }, bullets: [] };
+  player = { email: session.user.email, username: session.user.username, x: 0, y: 0, size: playerSize, color: 'red', isDead: false};
   players.push(player);
 
   const clientConfig = { width, height };
@@ -295,108 +342,136 @@ wss.on('connection', async (socket, req) =>
     const data = JSON.parse(message);
 
     if(data.type === 'game')
-    {
-      lastPlayerMovement.set(player.email, message);
+    { 
+      if(data.shot != null)
+      {
+        let shotX = Math.floor(data.shot.mouseX);
+        let shotY = Math.floor(data.shot.mouseY);
+
+        let id = 0;
+        if (bullets.length > 0)
+        { id = bullets[bullets.length - 1].id; }
+
+        let bullet = { id: id + 1, x: player.x, y: player.y, directionVector: getDirectionVector(player.x, player.y, shotX, shotY), owner: player.email, size: 4, color: 'blue' };
+        bullets.push(bullet);
+      }
+      lastPlayerMovement.set(player.email, data.movement); 
     }
   });
-  // socket.on('contextmenu', (event) => {
-  //   event.preventDefault();
-
-  //   const rect = canvas.getBoundingClientRect();
-  //   const mouseX = event.clientX - rect.left;
-  //   const mouseY = event.clientY - rect.top;
-
-  //   const contextMenuMessage = {
-  //     type: 'contextMenu',
-  //     mouseX: mouseX,
-  //     mouseY: mouseY
-  //   };
-
-  //   socket.send(JSON.stringify(contextMenuMessage));
-  // });
 
   socket.on('close', () => 
   { 
     if(player != null)
-    { players = players.filter((p) => p.email !== player.email); }
+    { 
+      players = players.filter((p) => p.email !== player.email); 
+      logout(player.email)
+    }
 
     if (players.length == 0)
-    {
-      process.exit(0);
-    }
+    { process.exit(0); }
   });
 });
 
 
-// function updateBullets() {
-//   for (const player of players) {
-//     for (const bullet of player.bullets) {
-//       bullet.x += bullet.direction.x * speed;
-//       bullet.y += bullet.direction.y * speed;
-
-//       // verify the collisions of the bullet with other players or obstacles
-//       // to implement based on your game rules
-//     }
-//   }
-// }
-
-function playerMovement(message, player) 
+function getDirectionVector(x0, y0, x1, y1) 
 {
-  // console.log("PRINTING", message);
-  if (message == null)
-    return;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
 
-  const { movement } = JSON.parse(message);
-  let newX = player.x;
-  let newY = player.y;
-  
-  if (movement.ArrowUp) newY -= speed;
-  if (movement.ArrowDown) newY += speed;
-  if (movement.ArrowLeft) newX -= speed;
-  if (movement.ArrowRight) newX += speed;
-  /* Bounding Boxes */
-  
-  // X-axis
-  if (newX < 0)
-  { player.x = 0; }
-  else if (newX > (width - playerSize))
-  { player.x = (width - playerSize); }
-  //Y-axis
-  else if (newY < 0)
-  { player.y = 0; }
-  else if (newY > (height - playerSize))
-  { player.y = (height - playerSize); }
-  
-  else 
-  { player.x = newX; player.y = newY; }
+  // Calculate the magnitude of the vector
+  const magnitude = Math.sqrt(dx * dx + dy * dy);
 
-  // wss.clients.forEach((client) => 
-  // {
-  //   if (client.readyState === WebSocket.OPEN)
-  //   { 
-  //     client.send(JSON.stringify({type: 'renderData', players })); 
-  //   }
-  // });
+  // Normalize the vector to have a magnitude of 1
+  const directionX = dx / magnitude;
+  const directionY = dy / magnitude;
+
+  return { x: directionX, y: directionY };
 }
 
-function isInsideSafeCircle(players, x, y, safeRadius) {
-  for (const player of players) {
+
+function isColliding(rect1, rect2) 
+{
+  return (
+    rect1.x < rect2.x + rect2.width &&
+    rect1.x + rect1.width > rect2.x &&
+    rect1.y < rect2.y + rect2.height &&
+    rect1.y + rect1.height > rect2.y
+  );
+}
+
+function wouldCollideWithOtherEntities(entities, currentEntity, newX, newY, size) 
+{
+  const testRect = { x: newX, y: newY, width: size, height: size };
+
+  for (const entity of entities) 
+  {
+    if (entity === currentEntity) continue;
+
+    const entityRect = { x: entity.x, y: entity.y, width: entity.size, height: entity.size };
+
+    if (isColliding(testRect, entityRect)) 
+    { return true; }
+  }
+  return false;
+}
+
+function playerMovement(movement, player) 
+{
+  if (movement == null) return;
+
+  // const { movement } = JSON.parse(message);
+  let newX = player.x;
+  let newY = player.y;
+
+  // Check movement in x-axis
+  if (movement.ArrowLeft) newX -= speed;
+  if (movement.ArrowRight) newX += speed;
+
+  // Check bounding box in x-axis
+  if (newX < 0) 
+  { player.x = 0; } 
+  else if (newX > (width - playerSize)) 
+  { player.x = (width - playerSize); } 
+  else if (!wouldCollideWithOtherEntities(players, player, newX, newY, player.size)) 
+  { player.x = newX; }
+
+  // Reset newX for y-axis movement check
+  newX = player.x;
+
+  // Check movement in y-axis
+  if (movement.ArrowUp) newY -= speed;
+  if (movement.ArrowDown) newY += speed;
+
+  // Check bounding box in y-axis
+  if (newY < 0) 
+  { player.y = 0; } 
+  else if (newY > (height - playerSize)) 
+  { player.y = (height - playerSize); } 
+  else if (!wouldCollideWithOtherEntities(players, player, newX, newY, player.size)) 
+  { player.y = newY; }  
+}
+
+function isInsideSafeCircle(players, x, y, safeRadius)
+{
+  for (const player of players) 
+  {
     const distance = Math.sqrt(
       Math.pow(player.x - x, 2) + Math.pow(player.y - y, 2)
     );
 
-    if (distance < safeRadius) {
-      return true;
-    }
+    if (distance < safeRadius) 
+    { return true; }
   }
 
   return false;
 }
 
-function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight) {
+function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight) 
+{
   let spawnX, spawnY;
 
-  do {
+  do 
+  {
     spawnX = Math.random() * worldWidth;
     spawnY = Math.random() * worldHeight;
   } while (isInsideSafeCircle(players, spawnX, spawnY, safeRadius));
@@ -407,29 +482,32 @@ function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight) {
   };
 }
 
-function render(zombies, players)
+function render(zombies, players, bullets)
 {
   wss.clients.forEach((client) => 
   {
     if (client.readyState === WebSocket.OPEN)
-    { 
-      client.send(JSON.stringify({type: 'renderData', players, zombies })); 
-    }
+    { client.send(JSON.stringify({type: 'renderData', players, zombies, bullets })); }
   });
 }
 
-function distance(x1, y1, x2, y2) {
-  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
-}
+function distance(x1, y1, x2, y2) 
+{ return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));}
 
-function findClosestPlayer(zombie, players) {
+function findClosestPlayer(zombie, players) 
+{
   let closestPlayer = null;
   let minDistance = Infinity;
 
-  for (const player of players) {
+  for (const player of players) 
+  {
+    if (player.isDead)
+    { continue; }
+
     const dist = distance(zombie.x, zombie.y, player.x, player.y);
 
-    if (dist < minDistance) {
+    if (dist < minDistance) 
+    {
       minDistance = dist;
       closestPlayer = player;
     }
@@ -438,21 +516,37 @@ function findClosestPlayer(zombie, players) {
   return closestPlayer;
 }
 
-function moveZombieTowardsPlayer(zombie, player, speed) {
+function moveZombieTowardsPlayer(zombie, zombies, speed) 
+{
+  const player = findClosestPlayer(zombie, players);
+
+  if(player == null)
+  { return; }
+
   const dist = distance(zombie.x, zombie.y, player.x, player.y);
   const deltaX = (player.x - zombie.x) / dist;
   const deltaY = (player.y - zombie.y) / dist;
 
-  zombie.x += deltaX * zombie.speed;
-  zombie.y += deltaY * zombie.speed;
+  const newX = zombie.x + deltaX * zombie.speed;
+  const newY = zombie.y + deltaY * zombie.speed;
+
+  // Check movement and collisions in x-axis
+  if (!wouldCollideWithOtherEntities(zombies, zombie, newX, zombie.y, zombie.size)) 
+  { zombie.x = newX; }
+
+  // Check movement and collisions in y-axis
+  if (!wouldCollideWithOtherEntities(zombies, zombie, zombie.x, newY, zombie.size)) 
+  { zombie.y = newY; }
 }
 
-function gameLoop() {
+function gameLoop() 
+{
   const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
   let lastUpdateTime = performance.now();
   let accumulatedTime = 0;
 
-  setInterval(() => {
+  setInterval(() => 
+  {
     const currentTime = performance.now();
     const deltaTime = currentTime - lastUpdateTime;
     lastUpdateTime = currentTime;
@@ -461,35 +555,71 @@ function gameLoop() {
     // Player movement
     for(const player of players)
     {
-      playerMovement(lastPlayerMovement.get(player.email), player);
+      if (!player.isDead)
+      { playerMovement(lastPlayerMovement.get(player.email), player); }
     }
 
     //Spawn new zombies if a new player connects
-    if(zombies.length < 20 * players.length)
+    if(zombies.length < numZombiesPerPlayer * players.length)
     {
       zombieCoord = getRandomSpawnPosition(players, 3, width, height);
-      zombies.push({x: zombieCoord.x, y: zombieCoord.y, size: 10, color: 'green', speed: Math.random() * (0.7 - 0.1) + 0.1});
+      let id = 0;
+      if (zombies.length > 0)
+      { id = zombies[zombies.length - 1].id; }
+      zombies.push({id: id, x: zombieCoord.x, y: zombieCoord.y, size: 10, color: 'green', speed: Math.random() * (0.7 - 0.1) + 0.1});
     }
 
     //Remove zombies if a player disconnects.
-    if(zombies.length > 20 * players.length)
-    {
-      zombies.pop();
-    }
+    if(zombies.length > numZombiesPerPlayer * players.length)
+    { zombies.pop(); }
 
     //Update Zombies
-    for (const zombie of zombies) {
-      const closestPlayer = findClosestPlayer(zombie, players);
-      moveZombieTowardsPlayer(zombie, closestPlayer);
-    }
+    for (const zombie of zombies) 
+    { moveZombieTowardsPlayer(zombie, zombies); }
 
     // Collision detection (zombies and players)
-       // a zombie have to be identified by x and y 
+    for (const zombie of zombies) 
+    {
+      for(const player of players) 
+      {
+        const zombieRect = { x: zombie.x, y: zombie.y, width: zombie.size, height: zombie.size };
+        const playerRect = { x: player.x, y: player.y, width: player.size, height: player.size };
+        
+        if (isColliding(zombieRect, playerRect)) 
+        {
+          player.isDead = true;
+          // console.log("FUCKING EATEN ALIVE! AAAAAAAAAAAAAAAAAAAAAAH! IT HURTS. OH GOD THEY ARE RIPPING MY BALLS OUT WITH THEIR MOUDLY MOUTHS. OH YEAH I LIKE THIS SHIT!! KEEP GOING YEAH!");
+        }
+      }
+    }
 
-    while (accumulatedTime >= fixedTimeStep) {
+    // Update bullets
+    for (const bullet of bullets)
+    { 
+      if (bullet.x > width || bullet.y > height) // Remove bullet
+      { bullets = bullets.filter((obj) => obj.id !== bullet.id); }
+      
+      bullet.x = bullet.x + (bullet.directionVector.x * bulletSpeed);
+      bullet.y = bullet.y + (bullet.directionVector.y * bulletSpeed);
+      
+      for (const zombie of zombies)
+      {
+        const zombieRect = { x: zombie.x, y: zombie.y, width: zombie.size, height: zombie.size };
+        const bulletRect = { x: bullet.x, y: bullet.y, width: bullet.size, height: bullet.size };
+        if(isColliding(zombieRect, bulletRect))
+        {
+          bullets = bullets.filter((obj) => obj.id !== bullet.id);
+          zombies = zombies.filter((obj) => obj.id !== zombie.id);
+        }
+      }
+    }
+
+
+    while (accumulatedTime >= fixedTimeStep)
+    {
       //Render Stuff
 
-      render(zombies, players);
+      render(zombies, players, bullets);
       accumulatedTime -= fixedTimeStep;
       //updateBullets();
     }
