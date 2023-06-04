@@ -2,15 +2,20 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
-const movement = 
-{
-  ArrowUp: false,
-  ArrowDown: false,
-  ArrowLeft: false,
-  ArrowRight: false,
+const movement = {
+  w: false, // Up
+  a: false, // Left
+  s: false, // Down
+  d: false, // Right
 };
 
+
 let shot = null;
+let email = null;
+let currentPlayer = null;
+let oldScore = 0;
+let bestScore = 0;
+let worldRecord = 0;
 
 socket.addEventListener('message', (event) => 
 {
@@ -19,11 +24,26 @@ socket.addEventListener('message', (event) =>
   if(data.type === 'clientConfig') 
   {
     const { width, height } = data.clientConfig;
+    email = data.email;
+    bestScore = data.bestScore;
+    $('#bestScore').html('Best score: ' + bestScore);
+
+    worldRecord = data.worldRecord;
+    $('#worldRecord').html('World record: ' + worldRecord.bestScore + ' by: ' + worldRecord.username);
+    
     canvas.width = width;
     canvas.height = height;
-    // requestAnimationFrame(gameLoop);
-    gameLoop();
+    const backgroundImage = new Image(); // Create a new Image object
+    backgroundImage.src = '/Game/canvas-background.jpg'; // Set the image's src attribute to the path of the image file
+
+    backgroundImage.onload = function () 
+    { 
+      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); 
+      gameLoop();
+    }; // Set the image's onload function to draw the image on the canvas
   }
+  else if (data.type === 'respawned')
+  { $('#overlay').hide(); }
   else
   {
     const players = data.players;
@@ -33,16 +53,17 @@ socket.addEventListener('message', (event) =>
   }
 });
 
-document.addEventListener('keydown', (event) => 
-{
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) 
-  { movement[event.key] = true; }
+
+document.addEventListener('keydown', (event) => {
+  if (['w', 'a', 's', 'd'].includes(event.key.toLowerCase())) {
+    movement[event.key.toLowerCase()] = true;
+  }
 });
 
-document.addEventListener('keyup', (event) => 
-{
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) 
-  { movement[event.key] = false; }
+document.addEventListener('keyup', (event) => {
+  if (['w', 'a', 's', 'd'].includes(event.key.toLowerCase())) {
+    movement[event.key.toLowerCase()] = false;
+  }
 });
 
 // Add an event listener for mousedown events
@@ -70,10 +91,11 @@ function gameLoop()
     lastUpdateTime = currentTime;
     accumulatedTime += deltaTime;
 
+    socket.send(JSON.stringify({ type: 'game', movement: movement, shot: shot }));
+    shot = null;
+
     while (accumulatedTime >= fixedTimeStep) 
     {
-      socket.send(JSON.stringify({ type: 'game', movement: movement, shot: shot }));
-      shot = null;
       accumulatedTime -= fixedTimeStep;
     }
   }, fixedTimeStep);
@@ -85,6 +107,9 @@ function render(players, zombies, bullets)
 
   for (const player of players) 
   {
+    if (player.email == email)
+    { currentPlayer = player; }
+
     ctx.fillStyle = player.color;
     ctx.fillRect(player.x, player.y, player.size, player.size);
 
@@ -92,12 +117,39 @@ function render(players, zombies, bullets)
     ctx.font = '14px Arial';
     ctx.fillStyle = 'black';
     ctx.fillText(player.username, player.x, player.y - 5);
+
+    if (player.isDead) 
+    {
+      // Draw a black cross over the dead player
+      const crossSize = player.size + 1;
+      ctx.beginPath();
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 3;
+      ctx.moveTo(player.x, player.y);
+      ctx.lineTo(player.x + crossSize, player.y + crossSize);
+      ctx.moveTo(player.x + crossSize, player.y);
+      ctx.lineTo(player.x, player.y + crossSize);
+      ctx.stroke();
+    }
   }
 
   for (const zombie of zombies) 
   {
     ctx.fillStyle = zombie.color;
     ctx.fillRect(zombie.x, zombie.y, zombie.size, zombie.size);
+
+    // Draw the life bar background 
+    const lifeBarWidth = zombie.size;
+    const lifeBarHeight = 5;
+    const lifeBarOffset = 5;
+    ctx.fillStyle = 'red';
+    ctx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarWidth, lifeBarHeight);
+
+    // Draw the life bar fill
+    const lifePercentage = zombie.life / Math.floor(zombie.size / 3);
+    const lifeBarFillWidth = lifePercentage * lifeBarWidth;
+    ctx.fillStyle = 'green';
+    ctx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarFillWidth, lifeBarHeight);
   }
 
   // Render bullets
@@ -108,4 +160,76 @@ function render(players, zombies, bullets)
     ctx.arc(bullet.x, bullet.y, bullet.size, 0, 2 * Math.PI);
     ctx.fill();
   }
+
+  if (currentPlayer.isDead) // Client player is dead
+  { 
+    if (bestScore < currentPlayer.score) // Update the best score locally
+    { 
+      bestScore = currentPlayer.score; 
+      $('#bestScore').html('Best score: ' + bestScore);
+    }
+    $('#overlay').show(); 
+  }
+
+  $('#score').html('Score: ' + currentPlayer.score);
+  if (oldScore != currentPlayer.score) // Update score
+  {
+    animateScoreIncrement(oldScore, currentPlayer.score); 
+    oldScore = currentPlayer.score;
+  }
+}
+
+$(function() 
+{
+  // Add an event listener for the respawn button
+  $('#respawnBtn').on('click', function() 
+  { socket.send(JSON.stringify({ type: 'respawn' })); });
+});
+
+function animateScoreIncrement(oldScore, newScore) 
+{
+  const increment = newScore - oldScore;
+  
+  let incrementElement = null;
+  if (increment > 0)
+  {
+    incrementElement = $('<div>')
+    .css({
+      position: 'absolute',
+      fontSize: '1.2em',
+      color: 'green',
+      opacity: 1,
+    })
+    .text(`+${increment}`);
+  }
+  else 
+  {
+    incrementElement = $('<div>')
+    .css({
+      position: 'absolute',
+      fontSize: '1.2em',
+      color: 'red',
+      opacity: 1,
+    })
+    .text(`${increment}`);
+  }
+
+  const scorePosition = $('#score').position();
+
+  incrementElement.css({
+    top: scorePosition.top - 15,
+    left: scorePosition.left,
+  });
+
+  $('.score-wrapper').append(incrementElement);
+
+  incrementElement.animate(
+    {
+      top: '-=30px',
+      opacity: 0,
+    },
+    1000,
+    function () 
+    { incrementElement.remove(); }
+  );
 }

@@ -6,12 +6,12 @@
 ✅ Collision between players.
 ✅ Collision between zombies.
 ✅ Collision between zombies and players.
-🚫 Death screen with respawn.
-🚫 Collision between zombies and bullets.
-🚫 Take direction of mouse and use it for bullets.
-🚫 Randomize player spawn point.
-🚫 In client.js move logic outside of the while in gameloop.
-🚫 Remove lastPlayerMovement map.
+✅ Death screen with respawn.
+✅ Collision between zombies and bullets.
+✅ Take direction of mouse and use it for bullets.
+✅ Randomize player spawn point.
+✅ Zombies have different size and speed
+✅ In client.js move logic outside of the while in gameloop.
 ✅ Make game loop on server too.
 ✅ Implemented Zombies.
 ✅ Implement login.
@@ -22,7 +22,8 @@
 ✅ Manage already signed up users.
 ✅ Crypt password.
 ✅ Avoid multiple connections from same user.
-
+✅ Implement score, personal record and global record.
+✅ When the server is stopped, automatically logout all the players.
 
 ❓❓❓❓❓❓ Maybe ❓❓❓❓❓❓
 🚫 Larger map, and camera follows the player.

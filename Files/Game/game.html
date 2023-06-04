@@ -1,14 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplayer Game</title>
-    <link rel="stylesheet" href="/Game/game-style.css">
-</head>
-<body>
-    <!-- <canvas id="gameCanvas" width="800" height="600"></canvas> -->
-    <canvas id="gameCanvas"></canvas>
-    <script src="/Game/client.js"></script>
-</body>
+
+    <head>
+
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Multiplayer Game</title>
+
+        <link rel="stylesheet" href="/Game/game-style.css">
+
+        <!-- Link to Bootstrap and JQuery -->
+        <link rel="stylesheet" href="/bootstrap.css">
+        <script src="/jquery.js"></script>
+        <script src="/bootstrap.js"></script>
+
+    </head>
+
+    <body>
+
+        <div class="game-container">
+
+            <div class="score-wrapper">
+                <div>
+                    <div id='score' class="score"></div>
+                    <div id='bestScore' class="score"></div>
+                </div>
+                <div id='worldRecord' class="score"></div>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+
+            <div id="overlay" class="death-overlay">
+                <div class="text-container">
+                    YOU ARE DEAD!
+                    <button id="respawnBtn" class="button">RESPAWN</button>
+                </div>
+            </div>
+   
+        </div>
+
+        <script src="/Game/client.js"></script>
+        
+    </body>
+    
 </html>

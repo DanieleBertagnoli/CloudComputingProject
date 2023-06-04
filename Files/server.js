@@ -1,3 +1,6 @@
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
 const http = require('http');
 const WebSocket = require('ws');
 const fs = require('fs');
@@ -26,8 +29,7 @@ app.use(sessionMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-/* ROUTES SERVED WITHOUT THE NEED OF BEING LOGGED */
-
+// Routes served without the need of being logged in
 app.use('/jquery.js', express.static('../node_modules/jquery/dist/jquery.min.js'));
 app.use('/bootstrap.js', express.static('../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'));
 app.use('/bootstrap.css', express.static('../node_modules/bootstrap/dist/css/bootstrap.min.css'));
@@ -39,6 +41,7 @@ app.use(express.static('.'));
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, './Login_Signup/login.html')); }); // Defalut route
 
+
 /* Function used to implement a middleware that checks whether the user is logged or not */
 function checkLoggedIn(req, res, next) 
 {
@@ -47,6 +50,7 @@ function checkLoggedIn(req, res, next)
   else 
   { res.redirect('/'); } // Redirect to login page if not logged in
 }
+
 
 /* Function called when the route /login is required */
 app.post('/login', async (req, res) => 
@@ -70,6 +74,7 @@ app.post('/login', async (req, res) =>
   { res.status(500).send('Error while logging in'); }
 });
 
+
 /* Function called when the route /login is required */
 app.post('/signup', async (req, res) => 
 {
@@ -85,7 +90,7 @@ app.post('/signup', async (req, res) =>
   { res.status(500).send('Error while signing up'); }
 });
 
-/* All the routes specified after this middleware are protected */
+// All the routes specified after this middleware are protected
 app.use(checkLoggedIn);
 app.use('/game', express.static('./Game/game.html')); 
 
@@ -122,6 +127,7 @@ const awsDbConfig =
 const dbConfig = isProduction ? awsDbConfig : localDbConfig;
 const mysql = require('mysql2');
 const { sign } = require('crypto');
+const { platform } = require('os');
 
 const connection = mysql.createConnection(dbConfig);
 connection.connect((err) => 
@@ -135,6 +141,7 @@ connection.connect((err) =>
 });
 
 
+/* Function used to login the user */
 async function login(email, password)
 {
   console.log("Login attempt detected from " + email);
@@ -142,7 +149,7 @@ async function login(email, password)
   return new Promise((resolve, reject) => 
   {
     // Check if the user exists
-    let sql = 'SELECT email, password, username, isLogged FROM users WHERE email = ?';
+    let sql = 'SELECT email, password, username, isLogged, bestScore FROM users WHERE email = ?';
     connection.query(sql, [email], async (err, results) => 
     {
       if (err) 
@@ -162,7 +169,7 @@ async function login(email, password)
             const match = await bcrypt.compare(password, results[0].password);
             if (match) // Passwords match, return the user's email and username
             { 
-              resolve({ email: results[0].email, username: results[0].username }); 
+              resolve({ email: results[0].email, username: results[0].username, bestScore: results[0].bestScore }); 
               // Update the user status as logged in
               sql = 'UPDATE users SET isLogged = 1 WHERE email = ?';
               connection.query(sql, [email], async (err, results) => 
@@ -192,10 +199,13 @@ async function login(email, password)
 }
 
 
-async function logout(email)
+/* Function used to logout the user */
+async function logout(email, bestScore)
 {
   console.log("Logout attempt detected from " + email);
+  updateScore(email, bestScore);
 
+  // Update the Database
   return new Promise((resolve, reject) => 
   {
     sql = 'UPDATE users SET isLogged = 0 WHERE email = ?';
@@ -203,7 +213,7 @@ async function logout(email)
     {
       if (err) 
       {
-        console.error('Error during login:', err);
+        console.error('Error during logout:', err);
         reject(err);
       }
     });
@@ -219,7 +229,8 @@ async function signup(email, password, username)
         email VARCHAR(255) NOT NULL PRIMARY KEY,
         username VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL,
-        isLogged TINYINT(1) NOT NULL
+        isLogged TINYINT(1) NOT NULL,
+        bestScore INT NOT NULL
       );
     `; // Create the table if does not exists
 
@@ -244,20 +255,16 @@ async function signup(email, password, username)
         reject(err);
       }
 
-      if (results.length > 0) 
-      {
-        // The user is already signed up
-        resolve(false);
-      } 
+      if (results.length > 0) // The user is already signed up 
+      { resolve(false); }  
       else 
       {
-        // Hash the password
-        try 
+        try // Hash the password
         {
           const hashedPassword = await bcrypt.hash(password, saltRounds);
 
           // Insert the user into the DB
-          sql = 'INSERT INTO users (email, password, username, isLogged) VALUES (?, ?, ?, ?)';
+          sql = 'INSERT INTO users (email, password, username, isLogged, bestScore) VALUES (?, ?, ?, ?, 0)';
           connection.query(sql, [email, hashedPassword, username, 0], (err, results) => {
             if (err) 
             {
@@ -279,12 +286,122 @@ async function signup(email, password, username)
 }
 
 
+/* Function used to update user's best score  */
+async function updateScore(email, newScore)
+{
+  // Update the Database
+  return new Promise((resolve, reject) => 
+  {
+    sql = 'UPDATE users SET bestScore = ? WHERE email = ?';
+    connection.query(sql, [newScore, email], async (err, results) => 
+    {
+      if (err) 
+      {
+        console.error('Error during the score update:', err);
+        reject(err);
+      }
+    });
+  });
+}
+
+/* Function used to get the world record  */
+async function getWorldRecord()
+{
+  return new Promise((resolve, reject) => 
+  {
+    sql = 'SELECT username, bestScore FROM users ORDER BY bestScore DESC LIMIT 1';
+    connection.query(sql, (err, results) => 
+    {
+      if (err) 
+      {
+        console.error('Error during the score update:', err);
+        reject(err);
+      }
+      else 
+      {
+        worldRecord = {
+          username: "None",
+          bestScore: 0
+          };
+        if (results.length > 0) 
+        {
+          worldRecord = {
+            username: results[0].username,
+            bestScore: results[0].bestScore
+          };
+        } 
+        resolve(worldRecord); 
+      }
+    });
+  });
+}
 
 
+async function gracefulShutdown() 
+{
+  console.log('\n\nGracefully shutting down the server...');
+
+  // Wait for a short time before closing the connections
+  setTimeout(async () => 
+  {
+    // Create an array of promises that resolve when each connection is closed
+    const closePromises = [];
+
+    wss.clients.forEach((client) => 
+    {
+      if (client.readyState === WebSocket.OPEN) 
+      {
+        const closePromise = new Promise((resolve) => 
+        {
+          client.once('close', () => 
+          { resolve(); });
+          client.close();
+        });
+        closePromises.push(closePromise);
+      }
+    });
+
+    // Wait for all connections to close
+    await Promise.all(closePromises);
+
+    // Close the WebSocket server
+    wss.close((err) => 
+    {
+      if (err) 
+      { console.error('Error closing WebSocket server:', err); } 
+      else 
+      { console.log('WebSocket server closed'); }
+    });
+
+    console.log('All users successfully logged out');
+
+    try 
+    {
+      // Stop the server
+      server.close(() => 
+      {
+        console.log('Server stopped');
+
+        // Force the process to exit after a timeout regardless of the event loop state
+        setTimeout(() => 
+        {
+          console.log('Forcing process exit');
+          process.exit(0);
+        }, 5000); // Wait for 5 seconds
+      });
+    } 
+    catch (error) 
+    {
+      console.error('Error during graceful shutdown:', error);
+      process.exit(1);
+    }
+  }, 1000); // Wait for 1 second before starting the shutdown process
+}
 
                                                                             /* GAME LOGIC */
 
 
+/* Function used to get a session */
 const getSessionFromRequest = async (req, sessionStore) => 
 {
   const cookies = cookie.parse(req.headers.cookie || '');
@@ -311,60 +428,81 @@ const getSessionFromRequest = async (req, sessionStore) =>
 };
 
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server }); // Web server socket
 
 let players = [];
 let zombies = [];
 let bullets = [];
 
-const numZombiesPerPlayer = 1;
+const numZombiesPerPlayer = 2;
 const speed = 1;
-const width = 800; const height = 600;
+const width = 1300; const height = 800;
 const playerSize = 10
 const bulletSpeed = 3;
 
 let lastPlayerMovement = new Map();
 
+// When the socket is opened
 wss.on('connection', async (socket, req) => 
 {
-  const session = await getSessionFromRequest(req, sessionStore);
+  const session = await getSessionFromRequest(req, sessionStore); // Get the session
 
   var player = null;
   console.log("Spawning player:" + session.user.username)
-  player = { email: session.user.email, username: session.user.username, x: 0, y: 0, size: playerSize, color: 'red', isDead: false};
-  players.push(player);
+  
+  // randomize the player's initial position
+  let x_i = Math.floor(Math.random() * width);
+  let y_i = Math.floor(Math.random() * height);
+  player = { email: session.user.email, username: session.user.username, x: x_i, y: y_i, size: playerSize, color: '#0073ff', isDead: false, score: 0, bestScore: session.user.bestScore }; // Create the new player
+  players.push(player); // Add it to the players' list
 
-  const clientConfig = { width, height };
-  socket.send(JSON.stringify({ type: 'clientConfig', clientConfig }));
+  const clientConfig = { width, height }; //Send the client configuration parameters
+  socket.send(JSON.stringify({ type: 'clientConfig', clientConfig: clientConfig, email: player.email, bestScore: player.bestScore, worldRecord: await getWorldRecord() }));
 
+  // When a new message is received through the socket
   socket.on('message', (message) => 
   {
     const data = JSON.parse(message);
 
     if(data.type === 'game')
     { 
-      if(data.shot != null)
+      if(data.shot != null && !player.isDead) // If the player has shot and is alive
       {
-        let shotX = Math.floor(data.shot.mouseX);
+        // Get the coordinates of the mouse
+        let shotX = Math.floor(data.shot.mouseX); 
         let shotY = Math.floor(data.shot.mouseY);
 
+        // Get the id of the bullet
         let id = 0;
         if (bullets.length > 0)
         { id = bullets[bullets.length - 1].id; }
 
-        let bullet = { id: id + 1, x: player.x, y: player.y, directionVector: getDirectionVector(player.x, player.y, shotX, shotY), owner: player.email, size: 4, color: 'blue' };
+        // Create the bullet and add it to the list
+        let bullet = { id: id + 1, x: player.x, y: player.y, directionVector: getDirectionVector(player.x, player.y, shotX, shotY), owner: player.email, size: 4, color: 'black' };
         bullets.push(bullet);
       }
       lastPlayerMovement.set(player.email, data.movement); 
     }
+    
+    else if(data.type === 'respawn')
+    { 
+      let newCoords = getRandomSpawnPosition(zombies, 200, width, height)
+      player.x = newCoords.x
+      player.y = newCoords.y
+      player.isDead = false; 
+      player.score = 0;
+      socket.send(JSON.stringify({ type: 'respawned' }));
+    }
   });
 
-  socket.on('close', () => 
+  
+  // When the socket is closed
+  socket.on('close', async () => 
   { 
     if(player != null)
     { 
-      players = players.filter((p) => p.email !== player.email); 
-      logout(player.email)
+      players = players.filter((p) => p.email !== player.email); // Remove the player from the list
+      await logout(player.email, player.bestScore) // Logout the player
     }
 
     if (players.length == 0)
@@ -373,6 +511,7 @@ wss.on('connection', async (socket, req) =>
 });
 
 
+/* Function used to get the direction vector */
 function getDirectionVector(x0, y0, x1, y1) 
 {
   const dx = x1 - x0;
@@ -389,6 +528,7 @@ function getDirectionVector(x0, y0, x1, y1)
 }
 
 
+/* Function used to check if two entities are colliding */
 function isColliding(rect1, rect2) 
 {
   return (
@@ -399,6 +539,7 @@ function isColliding(rect1, rect2)
   );
 }
 
+/* Function used to check if thw entities would collide if moved */
 function wouldCollideWithOtherEntities(entities, currentEntity, newX, newY, size) 
 {
   const testRect = { x: newX, y: newY, width: size, height: size };
@@ -415,17 +556,19 @@ function wouldCollideWithOtherEntities(entities, currentEntity, newX, newY, size
   return false;
 }
 
+/* Function used to update the player position */
 function playerMovement(movement, player) 
 {
-  if (movement == null) return;
+  if (movement == null) 
+  { return; }
 
-  // const { movement } = JSON.parse(message);
-  let newX = player.x;
-  let newY = player.y;
+  // Get the player current coordinates
+  let newX = player.x;  
+  let newY = player.y; 
 
   // Check movement in x-axis
-  if (movement.ArrowLeft) newX -= speed;
-  if (movement.ArrowRight) newX += speed;
+  if (movement.a) newX -= speed;
+  if (movement.d) newX += speed;
 
   // Check bounding box in x-axis
   if (newX < 0) 
@@ -439,8 +582,8 @@ function playerMovement(movement, player)
   newX = player.x;
 
   // Check movement in y-axis
-  if (movement.ArrowUp) newY -= speed;
-  if (movement.ArrowDown) newY += speed;
+  if (movement.w) newY -= speed;
+  if (movement.s) newY += speed;
 
   // Check bounding box in y-axis
   if (newY < 0) 
@@ -451,6 +594,8 @@ function playerMovement(movement, player)
   { player.y = newY; }  
 }
 
+
+/* Function used to check if the the zombie can be spawned in the coordinates */
 function isInsideSafeCircle(players, x, y, safeRadius)
 {
   for (const player of players) 
@@ -466,6 +611,8 @@ function isInsideSafeCircle(players, x, y, safeRadius)
   return false;
 }
 
+
+/* Get the coordinates to spawn the zombie randomly */
 function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight) 
 {
   let spawnX, spawnY;
@@ -482,18 +629,25 @@ function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight)
   };
 }
 
+
+/* Function used to send the data to be rendered by the client */
 function render(zombies, players, bullets)
 {
   wss.clients.forEach((client) => 
   {
     if (client.readyState === WebSocket.OPEN)
+
     { client.send(JSON.stringify({type: 'renderData', players, zombies, bullets })); }
   });
 }
 
+
+/* Function used to calculate the euclidian distance */
 function distance(x1, y1, x2, y2) 
 { return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));}
 
+
+/* Function used to find the closest player with respect to the zombie */
 function findClosestPlayer(zombie, players) 
 {
   let closestPlayer = null;
@@ -516,9 +670,11 @@ function findClosestPlayer(zombie, players)
   return closestPlayer;
 }
 
+
+/* Function used to move the zombie towards the closest player */
 function moveZombieTowardsPlayer(zombie, zombies, speed) 
 {
-  const player = findClosestPlayer(zombie, players);
+  const player = findClosestPlayer(zombie, players); // Find the closest player
 
   if(player == null)
   { return; }
@@ -539,6 +695,8 @@ function moveZombieTowardsPlayer(zombie, zombies, speed)
   { zombie.y = newY; }
 }
 
+
+/* Function used to update all entities */
 function gameLoop() 
 {
   const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
@@ -558,22 +716,45 @@ function gameLoop()
       if (!player.isDead)
       { playerMovement(lastPlayerMovement.get(player.email), player); }
     }
-
-    //Spawn new zombies if a new player connects
-    if(zombies.length < numZombiesPerPlayer * players.length)
+    
+    /* This function calculates the speed of the zombie based on his size (max size -> min speed) */
+    function calculateZombieSpeed(size) 
     {
-      zombieCoord = getRandomSpawnPosition(players, 3, width, height);
-      let id = 0;
-      if (zombies.length > 0)
-      { id = zombies[zombies.length - 1].id; }
-      zombies.push({id: id, x: zombieCoord.x, y: zombieCoord.y, size: 10, color: 'green', speed: Math.random() * (0.7 - 0.1) + 0.1});
+      if (size < 8 || size > 30) 
+      { throw new Error("Il valore di size deve essere compreso tra 8 e 12."); }
+    
+      var minOutput = 0.7;
+      var maxOutput = 0.3;
+    
+      var output = (size - 8) / (30 - 8) * (maxOutput - minOutput) + minOutput;
+    
+      return output;
     }
 
-    //Remove zombies if a player disconnects.
-    if(zombies.length > numZombiesPerPlayer * players.length)
-    { zombies.pop(); }
+    /* This function calculates the life of the zombie based on his size (max size -> max life) */
+    function calculateZombieLife(size) 
+    { return Math.floor(size/3); }
 
-    //Update Zombies
+    playersScore = 0;
+
+    for (const player of players)
+    {
+      playersScore += player.score;
+    }
+
+    let numZombies = numZombiesPerPlayer * players.length + Math.floor(playersScore / 50);
+
+    for (let i = zombies.length; i < numZombies; i++)
+    {
+      zombieCoord = getRandomSpawnPosition(players, 200, width, height);
+      let id = 0;
+      if (zombies.length > 0)
+      { id = zombies[zombies.length - 1].id + 1; }
+      var random_size = Math.floor(Math.random() * (31 - 8)) + 8;
+      zombies.push({id: id, x: zombieCoord.x, y: zombieCoord.y, size: random_size, color: '#006400', speed: calculateZombieSpeed(random_size), life: calculateZombieLife(random_size)});
+    }
+
+    // Update Zombies
     for (const zombie of zombies) 
     { moveZombieTowardsPlayer(zombie, zombies); }
 
@@ -585,10 +766,11 @@ function gameLoop()
         const zombieRect = { x: zombie.x, y: zombie.y, width: zombie.size, height: zombie.size };
         const playerRect = { x: player.x, y: player.y, width: player.size, height: player.size };
         
-        if (isColliding(zombieRect, playerRect)) 
-        {
-          player.isDead = true;
-          // console.log("FUCKING EATEN ALIVE! AAAAAAAAAAAAAAAAAAAAAAH! IT HURTS. OH GOD THEY ARE RIPPING MY BALLS OUT WITH THEIR MOUDLY MOUTHS. OH YEAH I LIKE THIS SHIT!! KEEP GOING YEAH!");
+        if (isColliding(zombieRect, playerRect)) // If the zombie and the player have collided, mark the player as dead
+        { 
+          player.isDead = true; 
+          if (player.bestScore < player.score)
+          { player.bestScore = player.score; }
         }
       }
     }
@@ -596,32 +778,43 @@ function gameLoop()
     // Update bullets
     for (const bullet of bullets)
     { 
-      if (bullet.x > width || bullet.y > height) // Remove bullet
-      { bullets = bullets.filter((obj) => obj.id !== bullet.id); }
+      if (Math.abs(bullet.x) > width || Math.abs(bullet.y) > height) // Remove bullet
+      { bullets = bullets.filter((obj) => obj.id != bullet.id); }
       
       bullet.x = bullet.x + (bullet.directionVector.x * bulletSpeed);
       bullet.y = bullet.y + (bullet.directionVector.y * bulletSpeed);
       
-      for (const zombie of zombies)
+      // Check if the bullet has hitted a zombie
+      for (const zombie of zombies) 
       {
         const zombieRect = { x: zombie.x, y: zombie.y, width: zombie.size, height: zombie.size };
         const bulletRect = { x: bullet.x, y: bullet.y, width: bullet.size, height: bullet.size };
         if(isColliding(zombieRect, bulletRect))
         {
           bullets = bullets.filter((obj) => obj.id !== bullet.id);
-          zombies = zombies.filter((obj) => obj.id !== zombie.id);
+          zombies = zombies
+            .map((obj) => 
+              {
+                if (obj.id == zombie.id) obj.life -= 1;
+                
+                if (obj.id == zombie.id && obj.life == 0) // Last hit
+                { 
+                  let player = players.find((obj) => obj.email === bullet.owner); 
+                  player.score += Math.floor(zombie.size/3); // Update score
+                }
+
+                return obj;
+              })
+            .filter((obj) => obj.life > 0);
         }
       }
     }
 
-
+    // Rendering
     while (accumulatedTime >= fixedTimeStep)
     {
-      //Render Stuff
-
       render(zombies, players, bullets);
       accumulatedTime -= fixedTimeStep;
-      //updateBullets();
     }
   }, fixedTimeStep);
 }
