@@ -1,5 +1,7 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const visibleCanvas = document.getElementById('gameCanvas');
+const visibleCtx = visibleCanvas.getContext('2d');
+visibleCanvas.width = window.innerWidth - 200; // or any desired width
+visibleCanvas.height = window.innerHeight - 200; // or any desired height
 
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
 const movement = {
@@ -17,6 +19,14 @@ let oldScore = 0;
 let bestScore = 0;
 let worldRecord = 0;
 
+let originalWidth = 0;
+let originalHeight = 0;
+
+const camera = {
+  x: 0,
+  y: 0,
+};
+
 socket.addEventListener('message', (event) => 
 {
   const data = JSON.parse(event.data);
@@ -31,14 +41,14 @@ socket.addEventListener('message', (event) =>
     worldRecord = data.worldRecord;
     $('#worldRecord').html('World record: ' + worldRecord.bestScore + ' by: ' + worldRecord.username);
     
-    canvas.width = width;
-    canvas.height = height;
+    originalWidth = width;
+    originalHeight = height;
     const backgroundImage = new Image(); // Create a new Image object
     backgroundImage.src = '/Game/canvas-background.jpg'; // Set the image's src attribute to the path of the image file
 
     backgroundImage.onload = function () 
     { 
-      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); 
+      visibleCtx.drawImage(backgroundImage, 0, 0, visibleCanvas.width, visibleCanvas.height); 
       gameLoop();
     }; // Set the image's onload function to draw the image on the canvas
   }
@@ -67,14 +77,21 @@ document.addEventListener('keyup', (event) => {
 });
 
 // Add an event listener for mousedown events
-canvas.addEventListener('mousedown', (event) => 
+visibleCanvas.addEventListener('mousedown', (event) => 
 {
-  const rect = canvas.getBoundingClientRect();
+  const rect = visibleCanvas.getBoundingClientRect();
   let mouseX = event.clientX - rect.left;
   let mouseY = event.clientY - rect.top;
 
-  shot = { mouseX: mouseX, mouseY: mouseY };
+  // Calculate the translation applied to the visible canvas
+  const translationX = Math.max(0, Math.min(camera.x, originalWidth - visibleCanvas.width));
+  const translationY = Math.max(0, Math.min(camera.y, originalHeight - visibleCanvas.height));
 
+  // Account for the camera's position and the applied translation
+  mouseX += translationX;
+  mouseY += translationY;
+
+  shot = { mouseX: mouseX, mouseY: mouseY };
 });
 
 
@@ -103,63 +120,82 @@ function gameLoop()
 
 function render(players, zombies, bullets) 
 {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (currentPlayer) 
+  {
+    camera.x = currentPlayer.x - visibleCanvas.width / 2;
+    camera.y = currentPlayer.y - visibleCanvas.height / 2;
+  }
+
+  // Clear canvas
+  visibleCtx.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
+
+  // Save context state
+  visibleCtx.save();
+
+  // Translate canvas to camera position
+  visibleCtx.translate(
+    -Math.max(0, Math.min(camera.x, originalWidth - visibleCanvas.width)),
+    -Math.max(0, Math.min(camera.y, originalHeight - visibleCanvas.height))
+  );
 
   for (const player of players) 
   {
     if (player.email == email)
     { currentPlayer = player; }
 
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x, player.y, player.size, player.size);
+    visibleCtx.fillStyle = player.color;
+    visibleCtx.fillRect(player.x, player.y, player.size, player.size);
 
     // Add player ID above the player character
-    ctx.font = '14px Arial';
-    ctx.fillStyle = 'black';
-    ctx.fillText(player.username, player.x, player.y - 5);
+    visibleCtx.font = '14px Arial';
+    visibleCtx.fillStyle = 'black';
+    visibleCtx.fillText(player.username, player.x, player.y - 5);
 
     if (player.isDead) 
     {
       // Draw a black cross over the dead player
       const crossSize = player.size + 1;
-      ctx.beginPath();
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 3;
-      ctx.moveTo(player.x, player.y);
-      ctx.lineTo(player.x + crossSize, player.y + crossSize);
-      ctx.moveTo(player.x + crossSize, player.y);
-      ctx.lineTo(player.x, player.y + crossSize);
-      ctx.stroke();
+      visibleCtx.beginPath();
+      visibleCtx.strokeStyle = 'black';
+      visibleCtx.lineWidth = 3;
+      visibleCtx.moveTo(player.x, player.y);
+      visibleCtx.lineTo(player.x + crossSize, player.y + crossSize);
+      visibleCtx.moveTo(player.x + crossSize, player.y);
+      visibleCtx.lineTo(player.x, player.y + crossSize);
+      visibleCtx.stroke();
     }
   }
 
   for (const zombie of zombies) 
   {
-    ctx.fillStyle = zombie.color;
-    ctx.fillRect(zombie.x, zombie.y, zombie.size, zombie.size);
+    visibleCtx.fillStyle = zombie.color;
+    visibleCtx.fillRect(zombie.x, zombie.y, zombie.size, zombie.size);
 
     // Draw the life bar background 
     const lifeBarWidth = zombie.size;
     const lifeBarHeight = 5;
     const lifeBarOffset = 5;
-    ctx.fillStyle = 'red';
-    ctx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarWidth, lifeBarHeight);
+    visibleCtx.fillStyle = 'red';
+    visibleCtx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarWidth, lifeBarHeight);
 
     // Draw the life bar fill
     const lifePercentage = zombie.life / Math.floor(zombie.size / 3);
     const lifeBarFillWidth = lifePercentage * lifeBarWidth;
-    ctx.fillStyle = 'green';
-    ctx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarFillWidth, lifeBarHeight);
+    visibleCtx.fillStyle = 'green';
+    visibleCtx.fillRect(zombie.x, zombie.y - lifeBarHeight - lifeBarOffset, lifeBarFillWidth, lifeBarHeight);
   }
 
   // Render bullets
   for (const bullet of bullets) 
   {
-    ctx.fillStyle = bullet.color;
-    ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, bullet.size, 0, 2 * Math.PI);
-    ctx.fill();
+    visibleCtx.fillStyle = bullet.color;
+    visibleCtx.beginPath();
+    visibleCtx.arc(bullet.x, bullet.y, bullet.size, 0, 2 * Math.PI);
+    visibleCtx.fill();
   }
+
+  // Restore context state to initial
+  visibleCtx.restore();
 
   if (currentPlayer.isDead) // Client player is dead
   { 

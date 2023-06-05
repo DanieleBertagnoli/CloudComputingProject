@@ -742,7 +742,8 @@ function gameLoop()
       playersScore += player.score;
     }
 
-    let numZombies = numZombiesPerPlayer * players.length + Math.floor(playersScore / 50);
+    let numZombies = 0;
+    // let numZombies = numZombiesPerPlayer * players.length + Math.floor(playersScore / 50);
 
     for (let i = zombies.length; i < numZombies; i++)
     {
