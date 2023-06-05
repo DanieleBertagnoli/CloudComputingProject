@@ -3,6 +3,9 @@ const visibleCtx = visibleCanvas.getContext('2d');
 visibleCanvas.width = window.innerWidth - 200; // or any desired width
 visibleCanvas.height = window.innerHeight - 200; // or any desired height
 
+const backgroundImage = new Image();
+backgroundImage.src = '/Game/canvas-background.jpg';
+
 const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`);
 const movement = {
   w: false, // Up
@@ -43,14 +46,8 @@ socket.addEventListener('message', (event) =>
     
     originalWidth = width;
     originalHeight = height;
-    const backgroundImage = new Image(); // Create a new Image object
-    backgroundImage.src = '/Game/canvas-background.jpg'; // Set the image's src attribute to the path of the image file
 
-    backgroundImage.onload = function () 
-    { 
-      visibleCtx.drawImage(backgroundImage, 0, 0, visibleCanvas.width, visibleCanvas.height); 
-      gameLoop();
-    }; // Set the image's onload function to draw the image on the canvas
+    gameLoop();
   }
   else if (data.type === 'respawned')
   { $('#overlay').hide(); }
@@ -137,6 +134,9 @@ function render(players, zombies, bullets)
     -Math.max(0, Math.min(camera.x, originalWidth - visibleCanvas.width)),
     -Math.max(0, Math.min(camera.y, originalHeight - visibleCanvas.height))
   );
+
+  // Draw the background image at the translated position
+  visibleCtx.drawImage(backgroundImage, 0, 0, originalWidth, originalHeight);
 
   for (const player of players) 
   {

@@ -24,6 +24,6 @@
 ✅ Avoid multiple connections from same user.
 ✅ Implement score, personal record and global record.
 ✅ When the server is stopped, automatically logout all the players.
+🚫 Larger map, and camera follows the player.
 
 ❓❓❓❓❓❓ Maybe ❓❓❓❓❓❓
-🚫 Larger map, and camera follows the player.
