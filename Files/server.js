@@ -106,7 +106,7 @@ server.listen(3000, () => {
 
                                                                             /* DATABASE MANAGEMENT */
 
-const isProduction = false;
+const isProduction = true;
 
 const localDbConfig = 
 {
@@ -118,10 +118,10 @@ const localDbConfig =
 
 const awsDbConfig = 
 {
-  host: process.env.AWS_DB_HOST,
-  user: process.env.AWS_DB_USER,
-  password: process.env.AWS_DB_PASSWORD,
-  database: process.env.AWS_DB_NAME,
+  host: 'cloud-computing-db.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
+  user: 'user',
+  password: 'zombie',
+  database: 'zombie_io',
 };
 
 const dbConfig = isProduction ? awsDbConfig : localDbConfig;
