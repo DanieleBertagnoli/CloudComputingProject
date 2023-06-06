@@ -106,7 +106,7 @@ server.listen(3000, () => {
 
                                                                             /* DATABASE MANAGEMENT */
 
-const isProduction = true;
+const isProduction = false;
 
 const localDbConfig = 
 {

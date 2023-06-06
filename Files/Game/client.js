@@ -45,8 +45,8 @@ socket.addEventListener('message', (event) =>
     originalWidth = width;
     originalHeight = height;
 
-    visibleCanvas.width = Math.max(window.innerWidth - 200, originalWidth); // or any desired width
-    visibleCanvas.height = Math.max(window.innerHeight - 200, originalHeight); // or any desired height
+    visibleCanvas.width = Math.min(window.innerWidth - 200, originalWidth); // or any desired width
+    visibleCanvas.height = Math.min(window.innerHeight - 200, originalHeight); // or any desired height
 
     gameLoop();
   }
