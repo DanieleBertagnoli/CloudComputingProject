@@ -1,7 +1,5 @@
 const visibleCanvas = document.getElementById('gameCanvas');
 const visibleCtx = visibleCanvas.getContext('2d');
-visibleCanvas.width = window.innerWidth - 200; // or any desired width
-visibleCanvas.height = window.innerHeight - 200; // or any desired height
 
 const backgroundImage = new Image();
 backgroundImage.src = '/Game/canvas-background.jpg';
@@ -46,6 +44,9 @@ socket.addEventListener('message', (event) =>
     
     originalWidth = width;
     originalHeight = height;
+
+    visibleCanvas.width = Math.max(window.innerWidth - 200, originalWidth); // or any desired width
+    visibleCanvas.height = Math.max(window.innerHeight - 200, originalHeight); // or any desired height
 
     gameLoop();
   }
