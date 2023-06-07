@@ -1,5 +1,10 @@
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
+process.on('uncaughtException', (error) => 
+{
+  console.error('Uncaught exception:', error);
+  gracefulShutdown();
+});
 
 const http = require('http');
 const WebSocket = require('ws');
@@ -484,7 +489,7 @@ wss.on('connection', async (socket, req) =>
       lastPlayerMovement.set(player.email, data.movement); 
     }
     
-    else if(data.type === 'respawn')
+    else if(data.type === 'respawn' && player.isDead)
     { 
       let newCoords = getRandomSpawnPosition(zombies, 200, width, height)
       player.x = newCoords.x
