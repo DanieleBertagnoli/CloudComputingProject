@@ -440,10 +440,10 @@ let zombies = [];
 let bullets = [];
 
 const numZombiesPerPlayer = 2;
-const speed = 1;
+const speed = 4;
 const width = 1300; const height = 800;
 const playerSize = 10
-const bulletSpeed = 3;
+const bulletSpeed = 12;
 
 let lastPlayerMovement = new Map();
 
@@ -499,7 +499,8 @@ wss.on('connection', async (socket, req) =>
       player.isDead = false; 
       player.score = 0;
       socket.send(JSON.stringify({ type: 'respawned' }));
-      global.gc()
+      global.gc();
+
     }
   });
 
@@ -645,8 +646,8 @@ function render(zombies, players, bullets)
   {
     if (client.readyState === WebSocket.OPEN)
     { 
-      let prova = JSON.stringify({type: 'renderData', players, zombies, bullets });
-      client.send(prova);
+      let str = JSON.stringify({type: 'renderData', players, zombies, bullets });
+      client.send(str);
     }
   });
 }
@@ -709,7 +710,7 @@ function moveZombieTowardsPlayer(zombie, zombies, speed)
 /* Function used to update all entities */
 function gameLoop() 
 {
-  const fixedTimeStep = 1000 / 240; // Update the game 60 times per second
+  const fixedTimeStep = 1000 / 60; // Update the game 240 times per second
   let lastUpdateTime = performance.now();
   let accumulatedTime = 0;
 
@@ -733,8 +734,8 @@ function gameLoop()
       if (size < 8 || size > 30) 
       { throw new Error("Il valore di size deve essere compreso tra 8 e 12."); }
     
-      var minOutput = 0.7;
-      var maxOutput = 0.3;
+      var minOutput = 2.8;
+      var maxOutput = 1.2;
     
       var output = (size - 8) / (30 - 8) * (maxOutput - minOutput) + minOutput;
     
@@ -748,9 +749,7 @@ function gameLoop()
     playersScore = 0;
 
     for (const player of players)
-    {
-      playersScore += player.score;
-    }
+    { playersScore += player.score; }
 
     let numZombies = numZombiesPerPlayer * players.length + Math.floor(playersScore / 50);
 
