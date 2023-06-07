@@ -441,7 +441,7 @@ let bullets = [];
 
 const numZombiesPerPlayer = 2;
 const speed = 4;
-const width = 1300; const height = 800;
+const width = 1800; const height = 1800;
 const playerSize = 10
 const bulletSpeed = 12;
 
@@ -640,7 +640,7 @@ function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight)
 }
 
 
-const bufferLimit = 30;
+const bufferLimit = 10;
 
 /* Function used to send the data to be rendered by the client */
 function render(zombies, players, bullets)
