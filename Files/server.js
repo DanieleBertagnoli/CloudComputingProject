@@ -452,7 +452,9 @@ let lastPlayerMovement = new Map();
 wss.on('connection', async (socket, req) => 
 {
   const session = await getSessionFromRequest(req, sessionStore); // Get the session
-
+  if(session == null)
+  { return; }
+  
   var player = null;
   console.log("Spawning player:" + session.user.username)
   
