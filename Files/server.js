@@ -444,6 +444,7 @@ const speed = 1;
 const width = 3000; const height = 3000;
 const playerSize = 10
 const bulletSpeed = 3;
+const maxZombies = 50;
 
 let lastPlayerMovement = new Map();
 
@@ -751,7 +752,7 @@ function gameLoop()
     for (const player of players)
     { playersScore += player.score; }
 
-    let numZombies = numZombiesPerPlayer * players.length + Math.floor(playersScore / 50);
+    let numZombies = Math.min(numZombiesPerPlayer * players.length + Math.floor(playersScore / 50), maxZombies);
 
     for (let i = zombies.length; i < numZombies; i++)
     {
