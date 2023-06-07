@@ -439,11 +439,11 @@ let players = [];
 let zombies = [];
 let bullets = [];
 
-const numZombiesPerPlayer = 2;
-const speed = 4;
-const width = 1800; const height = 1800;
+const numZombiesPerPlayer = 3;
+const speed = 1;
+const width = 3000; const height = 3000;
 const playerSize = 10
-const bulletSpeed = 12;
+const bulletSpeed = 3;
 
 let lastPlayerMovement = new Map();
 
@@ -713,7 +713,7 @@ function moveZombieTowardsPlayer(zombie, zombies, speed)
 /* Function used to update all entities */
 function gameLoop() 
 {
-  const fixedTimeStep = 1000 / 60; // Update the game 240 times per second
+  const fixedTimeStep = 1000 / 240; // Update the game 240 times per second
   let lastUpdateTime = performance.now();
   let accumulatedTime = 0;
 
@@ -733,12 +733,9 @@ function gameLoop()
     
     /* This function calculates the speed of the zombie based on his size (max size -> min speed) */
     function calculateZombieSpeed(size) 
-    {
-      if (size < 8 || size > 30) 
-      { throw new Error("Il valore di size deve essere compreso tra 8 e 12."); }
-    
-      var minOutput = 2.8;
-      var maxOutput = 1.2;
+    {    
+      var minOutput = 0.7;
+      var maxOutput = 0.3;
     
       var output = (size - 8) / (30 - 8) * (maxOutput - minOutput) + minOutput;
     
