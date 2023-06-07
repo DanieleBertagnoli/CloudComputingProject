@@ -499,6 +499,7 @@ wss.on('connection', async (socket, req) =>
       player.isDead = false; 
       player.score = 0;
       socket.send(JSON.stringify({ type: 'respawned' }));
+      global.gc()
     }
   });
 
