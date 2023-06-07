@@ -640,12 +640,14 @@ function getRandomSpawnPosition(players, safeRadius, worldWidth, worldHeight)
 }
 
 
+const bufferLimit = 30;
+
 /* Function used to send the data to be rendered by the client */
 function render(zombies, players, bullets)
 {
   wss.clients.forEach((client) => 
   {
-    if (client.readyState === WebSocket.OPEN)
+    if (client.readyState === WebSocket.OPEN && client.bufferedAmount <= bufferLimit)
     { 
       let str = JSON.stringify({type: 'renderData', players, zombies, bullets });
       client.send(str);

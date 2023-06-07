@@ -46,7 +46,7 @@ async def game_websocket(ws_uri, session_cookies):
             
                 cycle += 1
                 dead_cycle += 1
-                time.sleep(1/30)
+                time.sleep(1/60)
 
         except asyncio.CancelledError:
             print("WebSocket connection closed.")
