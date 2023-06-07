@@ -50,7 +50,6 @@ app.get('/', (req, res) => { res.sendFile(path.join(__dirname, './Login_Signup/l
 /* Function used to implement a middleware that checks whether the user is logged or not */
 function checkLoggedIn(req, res, next) 
 {
-  console.log(req);
   if (req.session.loggedIn && req.session.user) 
   { next(); } 
   else 
@@ -452,7 +451,7 @@ let lastPlayerMovement = new Map();
 wss.on('connection', async (socket, req) => 
 {
   const session = await getSessionFromRequest(req, sessionStore); // Get the session
-  if(session == null)
+  if(!session.user)
   { return; }
   
   var player = null;
