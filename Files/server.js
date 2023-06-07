@@ -500,7 +500,8 @@ wss.on('connection', async (socket, req) =>
       player.score = 0;
       socket.send(JSON.stringify({ type: 'respawned' }));
       global.gc();
-
+      const bufferedAmount = socket.bufferedAmount;
+      console.log(`Buffered data size: ${bufferedAmount} bytes   player ${player.username}`);
     }
   });
 

@@ -32,8 +32,7 @@ async def game_websocket(ws_uri, session_cookies):
                 
                 
                 movement = { 'w': random.choice([True, False]), 'a': random.choice([True, False]), 's': random.choice([True, False]), 'd': random.choice([True, False]) }
-                #data = { 'type': 'game', 'movement': movement, 'shot': shot }
-                data = { 'type': 'game', 'movement': movement}
+                data = { 'type': 'game', 'movement': movement, 'shot': shot }
                 if (dead_cycle == 300):
                     dead_cycle = 0
                     data = {'type': 'respawn'}
@@ -47,16 +46,16 @@ async def game_websocket(ws_uri, session_cookies):
             
                 cycle += 1
                 dead_cycle += 1
-                time.sleep(1/60)
+                time.sleep(1/30)
 
         except asyncio.CancelledError:
             print("WebSocket connection closed.")
 
-num_players = 1
+num_players = 5
+websocket_tasks = []
 
 for p in range(num_players):
-    #link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
-    link = "http://100.87.217.33:3000/signup"
+    link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
     email = f'test_player_{p}@gmail.com'
     password = '123'
     username = f'test_player_{p}'
@@ -66,8 +65,7 @@ for p in range(num_players):
 
     with requests.Session() as session:
         # Login and persist cookies in the session object
-        #link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/login'
-        link = 'http://100.87.217.33:3000/login'
+        link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/login'
         r = session.post(link, data=payload)
         print(r.text)
 
@@ -75,18 +73,20 @@ for p in range(num_players):
         session_cookie = session.cookies.get('connect.sid')
         session_cookies = f'connect.sid={session_cookie}'
 
-        # Replace this with the WebSocket URI used by your client.js
-        #ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
-        ws_uri = "ws://100.87.217.33:3000"
-        # Start WebSocket communication
-        loop = asyncio.get_event_loop()
-        websocket_task = loop.create_task(game_websocket(ws_uri, session_cookies))
+        ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
 
-        try:
-            loop.run_until_complete(websocket_task)
-        except KeyboardInterrupt:
-            # Stop the WebSocket connection when the script is interrupted
-            print("Stopping WebSocket connection...")
-            websocket_task.cancel()
-            loop.run_until_complete(websocket_task)
-            loop.close()
+        # Add the WebSocket task to the list
+        websocket_tasks.append(game_websocket(ws_uri, session_cookies))
+
+# Start all WebSocket tasks concurrently using asyncio.gather
+loop = asyncio.get_event_loop()
+
+try:
+    loop.run_until_complete(asyncio.gather(*websocket_tasks))
+except KeyboardInterrupt:
+    # Stop the WebSocket connections when the script is interrupted
+    print("Stopping WebSocket connections...")
+    for websocket_task in websocket_tasks:
+        websocket_task.cancel()
+        loop.run_until_complete(websocket_task)
+    loop.close()
