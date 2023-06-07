@@ -3,10 +3,18 @@ import requests
 import websockets
 import json
 import time
+import random
+
+from websockets import WebSocketClientProtocol
+class CustomWebSocketClientProtocol(WebSocketClientProtocol):
+    async def ping(self, data: bytes = None) -> None:
+        print("Received a ping frame.")
+        # Call the original ping method to handle the ping frame properly
+        await super().ping(data)
 
 async def game_websocket(ws_uri, session_cookies):
     headers = {'Cookie': session_cookies}
-    async with websockets.connect(ws_uri, extra_headers=headers) as websocket:
+    async with websockets.connect(ws_uri, extra_headers=headers, klass=CustomWebSocketClientProtocol) as websocket:
         print("WebSocket connection established.")
         try:
             
@@ -15,19 +23,20 @@ async def game_websocket(ws_uri, session_cookies):
             dead_cycle = 0
             while True:
 
-                if (cycle == 6):
-                    shot = { 'mouseX': 0, 'mouseY': 0 }
+                if (cycle == 4):
+                    shot = { 'mouseX': random.randint(0, 1300), 'mouseY': random.randint(0, 800) }
                     cycle = 0
                 else:
                     shot = None
                 
                 
-                movement = { 'w': True, 'a': False, 's': False, 'd': False }
-                data = { 'type': 'game', 'movement': movement, shot: shot }
+                
+                movement = { 'w': random.choice([True, False]), 'a': random.choice([True, False]), 's': random.choice([True, False]), 'd': random.choice([True, False]) }
+                data = { 'type': 'game', 'movement': movement, 'shot': shot }
 
                 if (dead_cycle == 300):
                     dead_cycle = 0
-                    data = {}
+                    data = {'type': 'respawn'}
 
                 # Convert the dictionary to a JSON string
                 data_json = json.dumps(data)
@@ -37,6 +46,7 @@ async def game_websocket(ws_uri, session_cookies):
                 response = await websocket.recv()
             
                 cycle += 1
+                dead_cycle += 1
                 time.sleep(1/60)
 
         except asyncio.CancelledError:

@@ -50,7 +50,7 @@ app.get('/', (req, res) => { res.sendFile(path.join(__dirname, './Login_Signup/l
 /* Function used to implement a middleware that checks whether the user is logged or not */
 function checkLoggedIn(req, res, next) 
 {
-  if (req.session.loggedIn) 
+  if (req.session.loggedIn && req.session.user) 
   { next(); } 
   else 
   { res.redirect('/'); } // Redirect to login page if not logged in
