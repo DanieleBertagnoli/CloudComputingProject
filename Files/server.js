@@ -643,8 +643,10 @@ function render(zombies, players, bullets)
   wss.clients.forEach((client) => 
   {
     if (client.readyState === WebSocket.OPEN)
-
-    { client.send(JSON.stringify({type: 'renderData', players, zombies, bullets })); }
+    { 
+      let prova = JSON.stringify({type: 'renderData', players, zombies, bullets });
+      client.send(prova);
+    }
   });
 }
 
@@ -824,8 +826,6 @@ function gameLoop()
       accumulatedTime -= fixedTimeStep;
     }
   }, fixedTimeStep);
-
-  console.log("%d %d %d", player.size, zombies.size, bullets.size)
 }
 
 gameLoop();

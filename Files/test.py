@@ -32,8 +32,8 @@ async def game_websocket(ws_uri, session_cookies):
                 
                 
                 movement = { 'w': random.choice([True, False]), 'a': random.choice([True, False]), 's': random.choice([True, False]), 'd': random.choice([True, False]) }
-                data = { 'type': 'game', 'movement': movement, 'shot': shot }
-
+                #data = { 'type': 'game', 'movement': movement, 'shot': shot }
+                data = { 'type': 'game', 'movement': movement}
                 if (dead_cycle == 300):
                     dead_cycle = 0
                     data = {'type': 'respawn'}
@@ -52,10 +52,11 @@ async def game_websocket(ws_uri, session_cookies):
         except asyncio.CancelledError:
             print("WebSocket connection closed.")
 
-num_players = 5
+num_players = 1
 
 for p in range(num_players):
-    link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
+    #link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
+    link = "http://100.87.217.33:3000/signup"
     email = f'test_player_{p}@gmail.com'
     password = '123'
     username = f'test_player_{p}'
@@ -65,7 +66,8 @@ for p in range(num_players):
 
     with requests.Session() as session:
         # Login and persist cookies in the session object
-        link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/login'
+        #link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/login'
+        link = 'http://100.87.217.33:3000/login'
         r = session.post(link, data=payload)
         print(r.text)
 
@@ -74,8 +76,8 @@ for p in range(num_players):
         session_cookies = f'connect.sid={session_cookie}'
 
         # Replace this with the WebSocket URI used by your client.js
-        ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
-
+        #ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
+        ws_uri = "ws://100.87.217.33:3000"
         # Start WebSocket communication
         loop = asyncio.get_event_loop()
         websocket_task = loop.create_task(game_websocket(ws_uri, session_cookies))
