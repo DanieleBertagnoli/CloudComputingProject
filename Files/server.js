@@ -824,6 +824,8 @@ function gameLoop()
       accumulatedTime -= fixedTimeStep;
     }
   }, fixedTimeStep);
+
+  console.log("%d %d %d", player.size, zombies.size, bullets.size)
 }
 
 gameLoop();

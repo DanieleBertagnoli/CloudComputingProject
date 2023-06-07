@@ -52,7 +52,7 @@ async def game_websocket(ws_uri, session_cookies):
         except asyncio.CancelledError:
             print("WebSocket connection closed.")
 
-num_players = 1
+num_players = 5
 
 for p in range(num_players):
     link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
