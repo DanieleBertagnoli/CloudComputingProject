@@ -436,7 +436,7 @@ const getSessionFromRequest = async (req, sessionStore) =>
     });
   } 
   else 
-  { return null; }
+  { resolve(null); }
 };
 
 
@@ -459,6 +459,7 @@ let lastPlayerMovement = new Map();
 wss.on('connection', async (socket, req) => 
 {
   const session = await getSessionFromRequest(req, sessionStore); // Get the session
+  console.log(session);
   if(session == null)
   { socket.close(); }
   
