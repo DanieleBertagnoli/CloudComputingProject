@@ -411,6 +411,7 @@ async function gracefulShutdown()
 const getSessionFromRequest = async (req, sessionStore) => 
 {
   const cookies = cookie.parse(req.headers.cookie || '');
+  console.log(cookies);
 
   let sessionId = null;
   if ('your-session-key' in cookies)
