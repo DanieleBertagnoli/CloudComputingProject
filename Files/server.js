@@ -22,7 +22,7 @@ const saltRounds = 10;
 
 const app = express();
 
-const isProduction = false;
+const isProduction = true;
 
 const localDbConfig = 
 {
