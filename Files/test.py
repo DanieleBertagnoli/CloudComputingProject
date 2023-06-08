@@ -85,7 +85,7 @@ async def control_players(player_queues):
         # Choose a random player_queue from the list
         player_queue = random.choice(player_queues)
 
-        if (shot_cycle == 20):
+        if (shot_cycle == 2):
             shot = {
                 'mouseX': random.randint(0, 1300),
                 'mouseY': random.randint(0, 800)
@@ -123,9 +123,9 @@ async def control_players(player_queues):
 async def spawn_players(num_players, player_queues):
     for p in range(num_players):
         await spawn_player(p, player_queues)
-        await asyncio.sleep(60)
+        await asyncio.sleep(90)
 
-num_players = 15
+num_players = 20
 websocket_tasks = []
 player_queues = []
 
