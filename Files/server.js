@@ -10,19 +10,41 @@ const http = require('http');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
+const mysql = require('mysql2');
 const express = require('express');
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
 const cookie = require('cookie');
 const bcrypt = require('bcrypt');
+
 const saltRounds = 10;
 
 const app = express();
 
-// Configure express-session middleware
-const sessionStore = new session.MemoryStore(); // Create a separate variable for the session store
+const isProduction = true;
+
+const localDbConfig = 
+{
+  host: 'localhost',
+  user: 'root',
+  password: '1801',
+  database: 'zombie_io',
+};
+
+const awsDbConfig = 
+{
+  host: 'cloud-computing-db.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
+  user: 'user',
+  password: 'zombie',
+  database: 'zombie_io',
+};
+
+const dbConfig = isProduction ? awsDbConfig : localDbConfig;
+const sessionStore = new MySQLStore(dbConfig);
 
 const sessionMiddleware = session({
-  secret: 'your-secret-key',
+  key: 'your-session-key',
+  secret: 'your-session-secret',
   resave: false,
   saveUninitialized: true,
   store: sessionStore, // Use the session store variable here
@@ -111,26 +133,6 @@ server.listen(3000, () => {
 
                                                                             /* DATABASE MANAGEMENT */
 
-const isProduction = true;
-
-const localDbConfig = 
-{
-  host: 'localhost',
-  user: 'root',
-  password: '1801',
-  database: 'zombie_io',
-};
-
-const awsDbConfig = 
-{
-  host: 'cloud-computing-db.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
-  user: 'user',
-  password: 'zombie',
-  database: 'zombie_io',
-};
-
-const dbConfig = isProduction ? awsDbConfig : localDbConfig;
-const mysql = require('mysql2');
 const { sign } = require('crypto');
 const { platform } = require('os');
 

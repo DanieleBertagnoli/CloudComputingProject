@@ -7,4 +7,5 @@ npm install jquery
 npm install bootstrap
 npm install mysql2
 npm install express express-session
+npm install express-mysql-session
 npm install bcrypt
