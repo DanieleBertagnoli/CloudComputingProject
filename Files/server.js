@@ -412,16 +412,14 @@ const getSessionFromRequest = async (req, sessionStore) =>
 {
   const cookies = cookie.parse(req.headers.cookie || '');
 
+  let sessionId = null;
   if ('your-session-key' in cookies)
   { 
-    const sessionId = cookies['your-session-key'];
+    sessionId = cookies['your-session-key'];
     console.log('Session ID:', sessionId); // Debug: Log the parsed session ID
-  }
-  else 
-  { return null; }
-  
+  } 
 
-  if (sessionId) 
+  if (sessionId != null) 
   {
     // Remove the "s:" prefix and the signature from the session ID
     const unsignedSessionId = sessionId.slice(2).split('.')[0];
