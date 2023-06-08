@@ -412,8 +412,14 @@ const getSessionFromRequest = async (req, sessionStore) =>
 {
   const cookies = cookie.parse(req.headers.cookie || '');
 
-  const sessionId = cookies['your-session-key'];
-  console.log('Session ID:', sessionId); // Debug: Log the parsed session ID
+  if ('your-session-key' in cookies)
+  { 
+    const sessionId = cookies['your-session-key'];
+    console.log('Session ID:', sessionId); // Debug: Log the parsed session ID
+  }
+  else 
+  { return null; }
+  
 
   if (sessionId) 
   {
