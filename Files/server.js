@@ -16,12 +16,13 @@ const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 const cookie = require('cookie');
 const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
 
 const saltRounds = 10;
 
 const app = express();
 
-const isProduction = true;
+const isProduction = false;
 
 const localDbConfig = 
 {
@@ -40,6 +41,18 @@ const awsDbConfig =
 };
 
 const dbConfig = isProduction ? awsDbConfig : localDbConfig;
+const connection = mysql.createConnection(dbConfig);
+
+connection.connect((err) => 
+{
+  if (err) 
+  {
+    console.error('Error connecting to the database:', err.stack);
+    return;
+  }
+  console.log('Connected to the database as ID', connection.threadId);
+});
+
 const sessionStore = new MySQLStore(dbConfig);
 
 const sessionMiddleware = session({
@@ -51,6 +64,7 @@ const sessionMiddleware = session({
   cookie: { secure: false, maxAge: 3600000 }, // Customize the cookie settings as needed
 });
 
+app.use(cookieParser());
 app.use(sessionMiddleware);
 
 app.use(express.json());
@@ -132,21 +146,6 @@ server.listen(3000, () => {
 
 
                                                                             /* DATABASE MANAGEMENT */
-
-const { sign } = require('crypto');
-const { platform } = require('os');
-
-const connection = mysql.createConnection(dbConfig);
-connection.connect((err) => 
-{
-  if (err) 
-  {
-    console.error('Error connecting to the database:', err.stack);
-    return;
-  }
-  console.log('Connected to the database as ID', connection.threadId);
-});
-
 
 /* Function used to login the user */
 async function login(email, password)
@@ -412,7 +411,9 @@ async function gracefulShutdown()
 const getSessionFromRequest = async (req, sessionStore) => 
 {
   const cookies = cookie.parse(req.headers.cookie || '');
-  const sessionId = cookies['connect.sid'];
+
+  const sessionId = cookies['your-session-key'];
+  console.log('Session ID:', sessionId); // Debug: Log the parsed session ID
 
   if (sessionId) 
   {

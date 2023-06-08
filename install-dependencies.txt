@@ -9,3 +9,4 @@ npm install mysql2
 npm install express express-session
 npm install express-mysql-session
 npm install bcrypt
+npm install cookie-parser
