@@ -89,6 +89,9 @@ visibleCanvas.addEventListener('mousedown', (event) =>
   mouseX += translationX;
   mouseY += translationY;
 
+  mouseX = Math.round(mouseX);
+  mouseY = Math.round(mouseY);
+
   shot = { mouseX: mouseX, mouseY: mouseY };
 });
 

@@ -414,10 +414,7 @@ const getSessionFromRequest = async (req, sessionStore) =>
 
   let sessionId = null;
   if ('your-session-key' in cookies)
-  { 
-    sessionId = cookies['your-session-key'];
-    console.log('Session ID:', sessionId); // Debug: Log the parsed session ID
-  } 
+  { sessionId = cookies['your-session-key']; } 
 
   if (sessionId != null) 
   {
@@ -459,7 +456,6 @@ let lastPlayerMovement = new Map();
 wss.on('connection', async (socket, req) => 
 {
   const session = await getSessionFromRequest(req, sessionStore); // Get the session
-  console.log(session);
   if(session == null)
   { socket.close(); }
   
@@ -608,9 +604,12 @@ function playerMovement(movement, player)
   if (newY < 0) 
   { player.y = 0; } 
   else if (newY > (height - playerSize)) 
-  { player.y = (height - playerSize); } 
+  { player.y = height - playerSize; } 
   else if (!wouldCollideWithOtherEntities(players, player, newX, newY, player.size)) 
   { player.y = newY; }  
+  
+  player.x = parseFloat(player.x.toFixed(1));
+  player.y = parseFloat(player.y.toFixed(1));
 }
 
 
@@ -716,6 +715,9 @@ function moveZombieTowardsPlayer(zombie, zombies, speed)
   // Check movement and collisions in y-axis
   if (!wouldCollideWithOtherEntities(zombies, zombie, zombie.x, newY, zombie.size)) 
   { zombie.y = newY; }
+
+  zombie.x = parseFloat(zombie.x.toFixed(1));
+  zombie.y = parseFloat(zombie.y.toFixed(1));
 }
 
 
@@ -801,6 +803,9 @@ function gameLoop()
       
       bullet.x = bullet.x + (bullet.directionVector.x * bulletSpeed);
       bullet.y = bullet.y + (bullet.directionVector.y * bulletSpeed);
+
+      bullet.x = parseFloat(bullet.x.toFixed(1));
+      bullet.y = parseFloat(bullet.y.toFixed(1));
       
       // Check if the bullet has hitted a zombie
       for (const zombie of zombies) 
