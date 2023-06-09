@@ -64,8 +64,9 @@ async def spawn_player(p, player_queues):
         print(r.text)
 
         # Extract connect.sid from the session cookies
-        session_cookie = session.cookies.get('your-session-key')
-        session_cookies = f'your-session-key={session_cookie}'
+        #session_cookie = session.cookies.get('your-session-key')
+        #session_cookies = f'your-session-key={session_cookie}'
+        session_cookies = session.cookies
 
         ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
         #ws_uri = 'ws://localhost:3000'

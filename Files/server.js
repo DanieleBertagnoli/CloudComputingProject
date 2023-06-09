@@ -153,7 +153,8 @@ server.listen(3000, () => {
                                                                             /* DATABASE MANAGEMENT */
 
 /* Function used to login the user */
-async function login(email, password) {
+async function login(email, password) 
+{
   console.log("Login attempt detected from " + email);
 
   return new Promise((resolve, reject) => 
@@ -210,7 +211,8 @@ async function login(email, password) {
 
 
 /* Function used to logout the user */
-async function logout(email, bestScore) {
+async function logout(email, bestScore) 
+{
   console.log("Logout attempt detected from " + email);
   updateScore(email, bestScore);
 
@@ -227,7 +229,8 @@ async function logout(email, bestScore) {
 }
 
 /* Function used to add the user to the DataBase */
-async function signup(email, password, username) {
+async function signup(email, password, username) 
+{
   const createTableSql = `
     CREATE TABLE IF NOT EXISTS users (
       email VARCHAR(255) NOT NULL PRIMARY KEY,
@@ -238,7 +241,8 @@ async function signup(email, password, username) {
     );
   `; // Create the table if does not exist
 
-  pool.query(createTableSql, (err) => {
+  pool.query(createTableSql, (err) => 
+  {
     if (err) {
       console.error('Error during table creation:', err);
       reject(err);
@@ -246,18 +250,21 @@ async function signup(email, password, username) {
   });
 
   // Check if the user is already present in the DB
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve, reject) => 
+  {
     let sql = 'SELECT * FROM users WHERE email = ?';
-    pool.query(sql, [email], async (err, results) => {
-      if (err) {
+    pool.query(sql, [email], async (err, results) => 
+    {
+      if (err) 
+      {
         console.error('Error during sign up:', err);
         reject(err);
       }
 
       if (results.length > 0) // The user is already signed up
+      { resolve(false); } 
+      else 
       {
-        resolve(false);
-      } else {
         try // Hash the password
         {
           const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -265,14 +272,17 @@ async function signup(email, password, username) {
           // Insert the user into the DB
           sql = 'INSERT INTO users (email, password, username, isLogged, bestScore) VALUES (?, ?, ?, ?, 0)';
           pool.query(sql, [email, hashedPassword, username, 0], (err, results) => {
-            if (err) {
+            if (err) 
+            {
               console.error('Error during sign up:', err);
               reject(err);
-            } else {
-              resolve(true);
-            }
+            } 
+            else 
+            { resolve(true); }
           });
-        } catch (err) {
+        } 
+        catch (err) 
+        {
           console.error('Error during password hashing:', err);
           reject(err);
         }
@@ -282,12 +292,16 @@ async function signup(email, password, username) {
 }
 
 /* Function used to update user's best score  */
-async function updateScore(email, newScore) {
+async function updateScore(email, newScore) 
+{
   // Update the Database
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => 
+  {
     sql = 'UPDATE users SET bestScore = ? WHERE email = ?';
-    pool.query(sql, [newScore, email], async (err, results) => {
-      if (err) {
+    pool.query(sql, [newScore, email], async (err, results) => 
+    {
+      if (err) 
+      {
         console.error('Error during the score update:', err);
         reject(err);
       }
@@ -296,19 +310,26 @@ async function updateScore(email, newScore) {
 }
 
 /* Function used to get the world record  */
-async function getWorldRecord() {
-  return new Promise((resolve, reject) => {
+async function getWorldRecord() 
+{
+  return new Promise((resolve, reject) => 
+  {
     sql = 'SELECT username, bestScore FROM users ORDER BY bestScore DESC LIMIT 1';
-    pool.query(sql, (err, results) => {
-      if (err) {
+    pool.query(sql, (err, results) => 
+    {
+      if (err) 
+      {
         console.error('Error during the score update:', err);
         reject(err);
-      } else {
+      } 
+      else 
+      {
         worldRecord = {
           username: "None",
           bestScore: 0
         };
-        if (results.length > 0) {
+        if (results.length > 0) 
+        {
           worldRecord = {
             username: results[0].username,
             bestScore: results[0].bestScore
