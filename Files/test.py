@@ -82,8 +82,6 @@ async def control_players(player_queues):
     dead_cycle = 0
     shot_cycle = 0
     while True:
-        # Choose a random player_queue from the list
-        player_queue = random.choice(player_queues)
 
         if (shot_cycle == 20):
             shot = {
@@ -111,7 +109,8 @@ async def control_players(player_queues):
             data = {'type': 'respawn'}
 
         # Put the message in the player_queue
-        await player_queue.put(data)
+        for player_queue in player_queues:
+            await player_queue.put(data)
 
         dead_cycle += 1
         shot_cycle += 1 
