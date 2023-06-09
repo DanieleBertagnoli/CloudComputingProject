@@ -26,6 +26,7 @@ const isProduction = true;
 
 const localDbConfig = 
 {
+  connectionLimit: 1,
   host: 'localhost',
   user: 'root',
   password: '1801',
@@ -34,6 +35,7 @@ const localDbConfig =
 
 const awsDbConfig = 
 {
+  connectionLimit: 1,
   host: 'cloud-computing-db-2.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
   user: 'user',
   password: 'zombie',
@@ -41,17 +43,20 @@ const awsDbConfig =
 };
 
 const dbConfig = isProduction ? awsDbConfig : localDbConfig;
-const connection = mysql.createConnection(dbConfig);
+// const connection = mysql.createConnection(dbConfig);
 
-connection.connect((err) => 
-{
-  if (err) 
-  {
-    console.error('Error connecting to the database:', err.stack);
-    return;
-  }
-  console.log('Connected to the database as ID', connection.threadId);
-});
+// Configure the connection pool with your database details
+const pool = mysql.createPool(dbConfig);
+
+// connection.connect((err) => 
+// {
+//   if (err) 
+//   {
+//     console.error('Error connecting to the database:', err.stack);
+//     return;
+//   }
+//   console.log('Connected to the database as ID', connection.threadId);
+// });
 
 const sessionStore = new MySQLStore(dbConfig);
 
@@ -148,40 +153,40 @@ server.listen(3000, () => {
                                                                             /* DATABASE MANAGEMENT */
 
 /* Function used to login the user */
-async function login(email, password)
-{
+async function login(email, password) {
   console.log("Login attempt detected from " + email);
 
   return new Promise((resolve, reject) => 
   {
     // Check if the user exists
     let sql = 'SELECT email, password, username, isLogged, bestScore FROM users WHERE email = ?';
-    connection.query(sql, [email], async (err, results) => 
+    pool.query(sql, [email], async (err, results) => 
     {
       if (err) 
       {
         console.error('Error during login:', err);
         reject(err);
       } 
-        
       else 
       {
         if (results.length > 0 && results[0].isLogged == 1) // User was already logged, return 2
-        { resolve(2); }
+        { resolve(2); } 
         else if (results.length > 0) 
         {
           try // Compare the provided password with the stored hashed password
           {
             const match = await bcrypt.compare(password, results[0].password);
             if (match) // Passwords match, return the user's email and username
-            { 
-              resolve({ email: results[0].email, username: results[0].username, bestScore: results[0].bestScore }); 
+            {
+              resolve({
+                email: results[0].email,
+                username: results[0].username,
+                bestScore: results[0].bestScore
+              });
               // Update the user status as logged in
               sql = 'UPDATE users SET isLogged = 1 WHERE email = ?';
-              connection.query(sql, [email], async (err, results) => 
-              {
-                if (err) 
-                {
+              pool.query(sql, [email], async (err, results) => {
+                if (err) {
                   console.error('Error during login:', err);
                   reject(err);
                 }
@@ -196,7 +201,6 @@ async function login(email, password)
             reject(err);
           }
         } 
-            
         else // User not found, return 1
         { resolve(1); }
       }
@@ -206,19 +210,15 @@ async function login(email, password)
 
 
 /* Function used to logout the user */
-async function logout(email, bestScore)
-{
+async function logout(email, bestScore) {
   console.log("Logout attempt detected from " + email);
   updateScore(email, bestScore);
 
   // Update the Database
-  return new Promise((resolve, reject) => 
-  {
+  return new Promise((resolve, reject) => {
     sql = 'UPDATE users SET isLogged = 0 WHERE email = ?';
-    connection.query(sql, [email], async (err, results) => 
-    {
-      if (err) 
-      {
+    pool.query(sql, [email], async (err, results) => {
+      if (err) {
         console.error('Error during logout:', err);
         reject(err);
       }
@@ -226,63 +226,53 @@ async function logout(email, bestScore)
   });
 }
 
-
 /* Function used to add the user to the DataBase */
-async function signup(email, password, username) 
-{
+async function signup(email, password, username) {
   const createTableSql = `
-      CREATE TABLE IF NOT EXISTS users (
-        email VARCHAR(255) NOT NULL PRIMARY KEY,
-        username VARCHAR(255) NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        isLogged TINYINT(1) NOT NULL,
-        bestScore INT NOT NULL
-      );
-    `; // Create the table if does not exists
+    CREATE TABLE IF NOT EXISTS users (
+      email VARCHAR(255) NOT NULL PRIMARY KEY,
+      username VARCHAR(255) NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      isLogged TINYINT(1) NOT NULL,
+      bestScore INT NOT NULL
+    );
+  `; // Create the table if does not exist
 
-  connection.query(createTableSql, (err) => 
-  {
-    if (err) 
-    {
+  pool.query(createTableSql, (err) => {
+    if (err) {
       console.error('Error during table creation:', err);
       reject(err);
     }
   });
 
   // Check if the user is already present in the DB
-  return new Promise(async (resolve, reject) => 
-  {
+  return new Promise(async (resolve, reject) => {
     let sql = 'SELECT * FROM users WHERE email = ?';
-    connection.query(sql, [email], async (err, results) => 
-    {
-      if (err) 
-      {
+    pool.query(sql, [email], async (err, results) => {
+      if (err) {
         console.error('Error during sign up:', err);
         reject(err);
       }
 
-      if (results.length > 0) // The user is already signed up 
-      { resolve(false); }  
-      else 
+      if (results.length > 0) // The user is already signed up
       {
+        resolve(false);
+      } else {
         try // Hash the password
         {
           const hashedPassword = await bcrypt.hash(password, saltRounds);
 
           // Insert the user into the DB
           sql = 'INSERT INTO users (email, password, username, isLogged, bestScore) VALUES (?, ?, ?, ?, 0)';
-          connection.query(sql, [email, hashedPassword, username, 0], (err, results) => {
-            if (err) 
-            {
+          pool.query(sql, [email, hashedPassword, username, 0], (err, results) => {
+            if (err) {
               console.error('Error during sign up:', err);
               reject(err);
-            } 
-            else 
-            { resolve(true); }
+            } else {
+              resolve(true);
+            }
           });
-        } 
-        catch (err) 
-        {
+        } catch (err) {
           console.error('Error during password hashing:', err);
           reject(err);
         }
@@ -291,18 +281,13 @@ async function signup(email, password, username)
   });
 }
 
-
 /* Function used to update user's best score  */
-async function updateScore(email, newScore)
-{
+async function updateScore(email, newScore) {
   // Update the Database
-  return new Promise((resolve, reject) => 
-  {
+  return new Promise((resolve, reject) => {
     sql = 'UPDATE users SET bestScore = ? WHERE email = ?';
-    connection.query(sql, [newScore, email], async (err, results) => 
-    {
-      if (err) 
-      {
+    pool.query(sql, [newScore, email], async (err, results) => {
+      if (err) {
         console.error('Error during the score update:', err);
         reject(err);
       }
@@ -311,32 +296,25 @@ async function updateScore(email, newScore)
 }
 
 /* Function used to get the world record  */
-async function getWorldRecord()
-{
-  return new Promise((resolve, reject) => 
-  {
+async function getWorldRecord() {
+  return new Promise((resolve, reject) => {
     sql = 'SELECT username, bestScore FROM users ORDER BY bestScore DESC LIMIT 1';
-    connection.query(sql, (err, results) => 
-    {
-      if (err) 
-      {
+    pool.query(sql, (err, results) => {
+      if (err) {
         console.error('Error during the score update:', err);
         reject(err);
-      }
-      else 
-      {
+      } else {
         worldRecord = {
           username: "None",
           bestScore: 0
-          };
-        if (results.length > 0) 
-        {
+        };
+        if (results.length > 0) {
           worldRecord = {
             username: results[0].username,
             bestScore: results[0].bestScore
           };
-        } 
-        resolve(worldRecord); 
+        }
+        resolve(worldRecord);
       }
     });
   });

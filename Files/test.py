@@ -126,14 +126,14 @@ async def control_players(player_queues):
 async def manage_players(num_players, player_queues):
     for p in range(num_players):
         await spawn_player(p, player_queues)
-        await asyncio.sleep(90)
+        await asyncio.sleep(1)
     
     print("ALL PLAYERS HAVE BEEN SPAWNED, PRESS ANY KEY TO END")
     input()
 
     for p in range(num_players):
         await socket_list[p].close()
-        await asyncio.sleep(90)
+        await asyncio.sleep(1)
 
     print("ALL PLAYERS HAVE BEEN DISCONNECTED")
 
