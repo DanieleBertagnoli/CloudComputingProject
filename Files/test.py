@@ -25,7 +25,9 @@ class CustomWebSocketClientProtocol(WebSocketClientProtocol):
 
 
 async def game_websocket(ws_uri, session_cookies, queue):
-    headers = {'Cookie': session_cookies}
+    headers = {
+        "Cookie": "; ".join([f"{cookie.name}={cookie.value}" for cookie in session_cookies])
+        }
     async with websockets.connect(ws_uri, extra_headers=headers, klass=CustomWebSocketClientProtocol) as websocket:
         print("WebSocket connection established.")
         socket_list.append(websocket)
@@ -48,7 +50,7 @@ async def game_websocket(ws_uri, session_cookies, queue):
 async def spawn_player(p, player_queues):
              
     link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
-    #link = 'http://localhost:3000/signup'
+
     email = f'daniele_{p}@gmail.com'
     password = '123'
     username = f'daniele_{p}'
@@ -59,17 +61,13 @@ async def spawn_player(p, player_queues):
     with requests.Session() as session:
         # Login and persist cookies in the session object
         link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/login'
-        #link = 'http://localhost:3000/login'
+
         r = session.post(link, data=payload)
         print(r.text)
 
-        # Extract connect.sid from the session cookies
-        #session_cookie = session.cookies.get('your-session-key')
-        #session_cookies = f'your-session-key={session_cookie}'
         session_cookies = session.cookies
 
         ws_uri = "ws://game-load-balancer-365151679.us-east-1.elb.amazonaws.com"
-        #ws_uri = 'ws://localhost:3000'
 
     # Add the player_queue to the player_queues list
     player_queue = asyncio.Queue()
@@ -127,14 +125,14 @@ async def control_players(player_queues):
 async def manage_players(num_players, player_queues):
     for p in range(num_players):
         await spawn_player(p, player_queues)
-        await asyncio.sleep(1)
+        await asyncio.sleep(90)
     
     print("ALL PLAYERS HAVE BEEN SPAWNED, PRESS ANY KEY TO END")
     input()
 
     for p in range(num_players):
         await socket_list[p].close()
-        await asyncio.sleep(1)
+        await asyncio.sleep(90)
 
     print("ALL PLAYERS HAVE BEEN DISCONNECTED")
 
