@@ -760,7 +760,10 @@ function gameLoop()
     playersScore = 0;
 
     for (const player of players)
-    { playersScore += player.score; }
+    { 
+      if(player)
+      { playersScore += player.score; } 
+    }
 
     let numZombies = Math.min(numZombiesPerPlayer * players.length + Math.floor(playersScore / 50), maxZombies);
 

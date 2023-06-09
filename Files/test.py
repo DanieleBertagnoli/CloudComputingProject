@@ -46,9 +46,9 @@ async def spawn_player(p, player_queues):
              
     link = 'http://game-load-balancer-365151679.us-east-1.elb.amazonaws.com/signup'
     #link = 'http://localhost:3000/signup'
-    email = f'test_player_{p}@gmail.com'
+    email = f'daniele_{p}@gmail.com'
     password = '123'
-    username = f'test_player_{p}'
+    username = f'daniele_{p}'
     payload = {'email': email, 'password': password, 'username': username}
     r = requests.post(link, data=payload)
     print(r.text)
@@ -85,7 +85,7 @@ async def control_players(player_queues):
         # Choose a random player_queue from the list
         player_queue = random.choice(player_queues)
 
-        if (shot_cycle == 2):
+        if (shot_cycle == 20):
             shot = {
                 'mouseX': random.randint(0, 1300),
                 'mouseY': random.randint(0, 800)
