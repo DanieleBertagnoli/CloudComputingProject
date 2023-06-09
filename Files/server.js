@@ -34,7 +34,7 @@ const localDbConfig =
 
 const awsDbConfig = 
 {
-  host: 'cloud-computing-db.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
+  host: 'cloud-computing-db-2.cqt22j2anxrg.us-east-1.rds.amazonaws.com',
   user: 'user',
   password: 'zombie',
   database: 'zombie_io',
