@@ -137,7 +137,7 @@ async def manage_players(num_players, player_queues):
 
     print("ALL PLAYERS HAVE BEEN DISCONNECTED")
 
-num_players = 1
+num_players = 20
 websocket_tasks = []
 player_queues = []
 

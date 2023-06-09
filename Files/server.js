@@ -519,9 +519,6 @@ wss.on('connection', async (socket, req) =>
       players = players.filter((p) => p.email !== player.email); // Remove the player from the list
       await logout(player.email, player.bestScore) // Logout the player
     }
-
-    if (players.length == 0)
-    { process.exit(0); }
   });
 });
 
@@ -738,6 +735,9 @@ function gameLoop()
     // Player movement
     for(const player of players)
     {
+      if(!player)
+      { continue; }
+
       if (!player.isDead)
       { playerMovement(lastPlayerMovement.get(player.email), player); }
     }
@@ -761,8 +761,9 @@ function gameLoop()
 
     for (const player of players)
     { 
-      if(player)
-      { playersScore += player.score; } 
+      if(!player)
+      { continue; }
+      playersScore += player.score; 
     }
 
     let numZombies = Math.min(numZombiesPerPlayer * players.length + Math.floor(playersScore / 50), maxZombies);
@@ -786,6 +787,9 @@ function gameLoop()
     {
       for(const player of players) 
       {
+        if(!player)
+        { continue; }
+      
         const zombieRect = { x: zombie.x, y: zombie.y, width: zombie.size, height: zombie.size };
         const playerRect = { x: player.x, y: player.y, width: player.size, height: player.size };
         
