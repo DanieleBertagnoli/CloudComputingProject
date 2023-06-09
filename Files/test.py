@@ -9,6 +9,8 @@ import http
 from websockets import WebSocketClientProtocol
 from websockets import WebSocketClientProtocol
 
+socket_list = []
+
 class CustomWebSocketClientProtocol(WebSocketClientProtocol):
 
     async def ping(self, data: bytes = None) -> None:
@@ -26,6 +28,7 @@ async def game_websocket(ws_uri, session_cookies, queue):
     headers = {'Cookie': session_cookies}
     async with websockets.connect(ws_uri, extra_headers=headers, klass=CustomWebSocketClientProtocol) as websocket:
         print("WebSocket connection established.")
+        socket_list.append(websocket)
 
         try:
             while True:
@@ -78,6 +81,7 @@ async def spawn_player(p, player_queues):
     print("CONNECTING PLAYER {0}".format(p))
     asyncio.create_task(player_task)  # Create the task without awaiting it
 
+
 async def control_players(player_queues):
     dead_cycle = 0
     shot_cycle = 0
@@ -119,12 +123,21 @@ async def control_players(player_queues):
         await asyncio.sleep(1/60)
 
 
-async def spawn_players(num_players, player_queues):
+async def manage_players(num_players, player_queues):
     for p in range(num_players):
         await spawn_player(p, player_queues)
         await asyncio.sleep(90)
+    
+    print("ALL PLAYERS HAVE BEEN SPAWNED, PRESS ANY KEY TO END")
+    input()
 
-num_players = 20
+    for p in range(num_players):
+        await socket_list[p].close()
+        await asyncio.sleep(90)
+
+    print("ALL PLAYERS HAVE BEEN DISCONNECTED")
+
+num_players = 1
 websocket_tasks = []
 player_queues = []
 
@@ -132,7 +145,7 @@ player_queues = []
 loop = asyncio.get_event_loop()
 
 # Start the spawn_players and control_players tasks
-spawn_players_task = loop.create_task(spawn_players(num_players, player_queues))
+spawn_players_task = loop.create_task(manage_players(num_players, player_queues))
 control_players_task = loop.create_task(control_players(player_queues))
 
 try:
