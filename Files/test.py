@@ -27,25 +27,28 @@ class CustomWebSocketClientProtocol(WebSocketClientProtocol):
 async def game_websocket(ws_uri, session_cookies, queue):
     headers = {
         "Cookie": "; ".join([f"{cookie.name}={cookie.value}" for cookie in session_cookies])
-        }
-    async with websockets.connect(ws_uri, extra_headers=headers, klass=CustomWebSocketClientProtocol) as websocket:
-        print("WebSocket connection established.")
-        socket_list.append(websocket)
-
+    }
+    while True:
         try:
-            while True:
-                # Wait for a message from the control_players task
-                data = await queue.get()
+            async with websockets.connect(ws_uri, extra_headers=headers, klass=CustomWebSocketClientProtocol) as websocket:
+                print("WebSocket connection established.")
+                socket_list.append(websocket)
 
-                # Convert the dictionary to a JSON string
-                data_json = json.dumps(data)
+                while True:
+                    data = await queue.get()
+                    data_json = json.dumps(data)
+                    await websocket.send(data_json)
+                    response = await websocket.recv()
 
-                # Send the JSON string using the WebSocket connection
-                await websocket.send(data_json)
-                response = await websocket.recv()
-
-        except asyncio.CancelledError:
-            print("WebSocket connection closed.")
+        except (websockets.exceptions.ConnectionClosedError, asyncio.CancelledError):
+            print("WebSocket connection closed. Attempting to close WebSocket...")
+            if websocket and websocket.open:
+                await websocket.close()
+                print("WebSocket closed.")
+            break
+        except Exception as e:
+            print(f"Unexpected error occurred: {e}")
+            break
 
 async def spawn_player(p, player_queues):
              
@@ -122,19 +125,25 @@ async def control_players(player_queues):
         await asyncio.sleep(1/60)
 
 
+async def input_async(prompt: str = "") -> str:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, input, prompt)
+
 async def manage_players(num_players, player_queues):
     for p in range(num_players):
         await spawn_player(p, player_queues)
         await asyncio.sleep(90)
-    
+
     print("ALL PLAYERS HAVE BEEN SPAWNED, PRESS ANY KEY TO END")
-    input()
+    await input_async()
 
     for p in range(num_players):
         await socket_list[p].close()
-        await asyncio.sleep(90)
+        print("PLAYER {} DISCONNETED".format(p))
+        await asyncio.sleep(10)
 
     print("ALL PLAYERS HAVE BEEN DISCONNECTED")
+
 
 num_players = 20
 websocket_tasks = []
