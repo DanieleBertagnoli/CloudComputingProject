@@ -140,7 +140,7 @@ async def manage_players(num_players, player_queues):
     for p in range(num_players):
         await socket_list[p].close()
         print("PLAYER {} DISCONNETED".format(p))
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
 
     print("ALL PLAYERS HAVE BEEN DISCONNECTED")
 
